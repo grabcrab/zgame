@@ -67,3 +67,20 @@ void ledRgbOff(void)
 {
     ledSet(0, 0, 0, 0, 0);
 }
+
+uint32_t hexToInt(String hexStr)
+{
+    hexStr.replace("0x", "");
+    hexStr.replace("0X", "");
+    hexStr.toUpperCase();    
+    uint32_t res;
+    sscanf(hexStr.c_str(), "%X", &res);        
+    return res;
+}
+
+uint32_t hexoDecToInt(String strVal)
+{
+    if (strVal.indexOf("x") >= 0)
+        return hexToInt(strVal);
+    return (uint32_t) strVal.toInt();
+}

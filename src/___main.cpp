@@ -2,7 +2,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 
-#include <Adafruit_NeoPixel.h>
+
 #include <Wire.h>
 
 // #include "soc/soc.h"
@@ -11,13 +11,13 @@
 #include "espRadio.h"
 #include "kxtj3-1057.h"
 
+#include "ledPlayer.h"
+
 extern void beaconJob(void);
 extern void receiverJob(void*);
 
 extern void setupTFT(void);
 extern void loopTFT(void);
-
-Adafruit_NeoPixel pixels(8, PIN_LED_MATRIX, NEO_GRB + NEO_KHZ800);
 
 void testVibro(void)
 {
@@ -105,25 +105,25 @@ void testRgb(void)
 
     for (int j = 0; j < 8; j++)
     {
-        pixels.setPixelColor(j, pixels.Color(2, 0, 0));
+        neoPixels.setPixelColor(j, neoPixels.Color(2, 0, 0));
         delay(100);
-        pixels.show();
+        neoPixels.show();
 
     }
 
     for (int j = 0; j < 8; j++)
     {
-        pixels.setPixelColor(j, pixels.Color(0, 0, 2));
+        neoPixels.setPixelColor(j, neoPixels.Color(0, 0, 2));
         delay(100);
-        pixels.show();
+        neoPixels.show();
 
     }
 
     for (int j = 0; j < 8; j++)
     {
-        pixels.setPixelColor(j, pixels.Color(0, 2, 0));
+        neoPixels.setPixelColor(j, neoPixels.Color(0, 2, 0));
         delay(100);
-        pixels.show();
+        neoPixels.show();
 
     }
 
@@ -164,16 +164,22 @@ extern void audioSetup();
 extern void audioOnline(void) ;
 extern void audioPlay(void);
 
+void waitG0(void)
+{
+    pinMode(0, INPUT);
+    while(!digitalRead(0))
+    {
+        Serial.println("Press button");
+        delay(1000);
+    }
+}
+
 void setup(void)
 {
     
-    ///WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+    
     Serial.begin(115200);
-    // while(!Serial.available())
-    // {
-    //     Serial.print("*");
-    //     delay(1000);
-    // }
+    //waitG0();
     Serial.println(">>> BOOT");
     delay(10);
     Serial.printf("FLASH: %lu\r\n", ESP.getFlashChipSize());
@@ -183,10 +189,9 @@ void setup(void)
     
     pinMode(PIN_POWER, OUTPUT);
     digitalWrite(PIN_POWER, HIGH);
-    //testVibro();
-    //audioOnline();    
-    
-
+    testVibro();    
+    //ledTest();
+    startLedTestTask();
     prepareWiFi();
     espInitRxTx(DEVICE_NUM);
     //Serial2.begin(115200, SERIAL_8N1, 11, 12);
@@ -202,6 +207,7 @@ void setup(void)
     // while(1) delay(1);
 
     setupTFT();
+    audioSetup();
     // while(1)
     //     loopTFT();
     
@@ -230,24 +236,15 @@ void setup(void)
 void loop(void)
 {
     //vTaskDelete(NULL);
-    audioSetup();
-    audioPlay();
-   // delay(20000);
-    while(true)
-    {
-        Serial.println("--> LOOP");    
-        testAccel();
-        testVibro();
-        testRgb();
-
-        for (int i = 0; i < 5000; i++)
-        {
-            audioLoop();
-            delay(1);
-        }        
     
+    audioPlay();
+   
+    for (int i = 0; i < 60000; i++)
+    {
+        audioLoop();
+        delay(1);
     }
-    delay(5000);
+    
 }
 
 

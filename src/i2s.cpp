@@ -40,7 +40,7 @@ void audioSetup()
     audio.setPinout(PIN_I2S_BCLK, PIN_I2S_LRC, PIN_I2S_DOUT);    
     
     // Set Volume    
-    audio.setVolume(10);
+    audio.setVolume(AUDIO_VOLUME);
    
     
     // Open music file

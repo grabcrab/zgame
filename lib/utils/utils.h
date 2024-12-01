@@ -26,5 +26,9 @@ void ledGreen(tLedState ls);
 void ledBlue(tLedState ls);
 void ledRgbOff(void);
 
+uint32_t hexToInt(String hexStr);
+uint32_t hexoDecToInt(String strVal);
+
+
 
 #endif //__UTILS_H__
