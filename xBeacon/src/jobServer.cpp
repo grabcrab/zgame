@@ -1,0 +1,176 @@
+#include <Arduino.h>
+#include <ESPmDNS.h>
+#include "valPlayer.h"
+#include "tft_utils.h"
+#include "zgConfig.h"
+#include "wifiUtils.h"
+
+#include "AsyncTCP.h"
+#include "ESPAsyncWebServer.h"
+
+#define WEB_LOOP_PERIOD_MS  50
+
+class tWebServer: public AsyncWebServer 
+{
+    public:
+    tWebServer(uint16_t port);
+    void init(); 
+    static bool doPost;
+    static bool doGet;
+    static bool doPortal;
+    static void onNotFoundHandler(AsyncWebServerRequest *request);
+    static void processPostBody(AsyncWebServerRequest *request, uint8_t* data, size_t len, size_t index, size_t total);
+    static void processPostReq(AsyncWebServerRequest *request);    
+    static void processGetReq(AsyncWebServerRequest *request);
+    static void processWiFiReq(AsyncWebServerRequest *request);
+    static String processor(const String& var);
+};
+
+uint32_t lastServerUpdatedMs = 0;
+bool wasWiFiConnected = false;
+
+tWebServer *webServer;
+AsyncEventSource events("/events");
+
+void serverUpdateTft(void)
+{
+    String dnsFullName = zgConfig()->ServerName + ".local";
+    String wifiSigStr = String(wifiGetSSPercents()) + "% (" + String(wifiGetRSSI()) + ")";
+    bool nowWiFiConnected;
+    if (millis() - lastServerUpdatedMs < 1000)
+        return;
+    lastServerUpdatedMs = millis();
+    tftPrintThreeLines(dnsFullName, zgConfig()->WiFiSSID, wifiSigStr, TFT_BLACK, TFT_GREEN);    
+    Serial.printf(">>> GAME SERVER: [%s] [%s / %s: %s]\r\n", dnsFullName.c_str(), zgConfig()->WiFiSSID.c_str(), zgConfig()->WiFiPASS.c_str(), wifiSigStr.c_str());
+
+    nowWiFiConnected = wifiIsConnected();
+    if (nowWiFiConnected != wasWiFiConnected)
+    {
+        wasWiFiConnected = nowWiFiConnected;
+        if (nowWiFiConnected)
+        {
+            valPlayPattern("GreenLine");
+        }
+        else 
+        {
+            valPlayPattern("BlueLine");
+        }
+    }    
+}
+
+void mdnsInit(void)
+{    
+    String dnsName = zgConfig()->ServerName;
+    if (MDNS.begin(dnsName)) 
+        Serial.printf(">>> MDNS started: %s\r\n", (dnsName + ".local").c_str());
+    else     
+        Serial.printf("!!! ERROR starting MDNS: %s\r\n", (dnsName + ".local").c_str());
+}
+
+void wifiConnect(void)
+{
+    valPlayPattern("BlueLine");
+    tftPrintThreeLines("Wi-Fi connect", zgConfig()->WiFiSSID, zgConfig()->WiFiPASS, TFT_BLACK, TFT_GREEN);
+    wifiInit(zgConfig()->WiFiSSID, zgConfig()->WiFiPASS);
+    while(!wifiIsConnected())
+    {
+        Serial.printf(">>> Wi-Fi connection: %s / %s\r\n", zgConfig()->WiFiSSID.c_str(), zgConfig()->WiFiPASS.c_str());
+        delay(1000);
+    }    
+    Serial.printf(">>> Wi-Fi connected: %s / %s\r\n", zgConfig()->WiFiSSID.c_str(), zgConfig()->WiFiPASS.c_str());
+    mdnsInit();
+}
+
+void webLoop(void)
+{
+    events.send(String(millis()).c_str(), "plisttxt", millis());
+}
+
+
+void jobServer(void)
+{
+    if (!valPlayerInit())
+    {
+        while(1)
+        {
+            Serial.println("Error VAL init!!!");
+            delay(1000);
+        }
+    }
+//    tftPrintText("SERVER", TFT_BLACK, TFT_BLUE);
+    
+    wifiConnect();
+    webServer = new tWebServer(80);
+    while(true)
+    {
+        serverUpdateTft();
+        webLoop();
+        delay(WEB_LOOP_PERIOD_MS);
+    }
+}
+
+
+
+tWebServer::tWebServer(uint16_t port) : AsyncWebServer(port)
+{
+    init();
+}
+
+void tWebServer::init(void)
+{
+    Serial.println(">>> WEB SERVER INIT");
+    on("/clearlist", HTTP_GET, processGetReq, nullptr, nullptr);     
+    on("/start", HTTP_GET, processGetReq, nullptr, nullptr); 
+    //on("/bg", HTTP_POST, processPostReq, nullptr, processPostBody); 
+    //on("/test", HTTP_GET, processGetReq, nullptr, nullptr); 
+    
+    // on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+    // {
+    //     if (doPortal)
+    //         request->send_P(200, "text/html", index_html, processor);        
+    // });
+
+    serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm");
+    on("/start.html", HTTP_GET, [](AsyncWebServerRequest *request){request->send(SPIFFS, "/start.html", "text/html"); });
+
+    onNotFound(onNotFoundHandler);
+    addHandler(&events);
+    begin();
+}
+
+void tWebServer::onNotFoundHandler(AsyncWebServerRequest *request)
+{
+    Serial.println("Web not found:");
+    Serial.println(request->methodToString());
+    Serial.println(request->url());    
+    request->send(404, "text/plain", "BAD COMMAND");
+    delay(100);
+}
+
+void tWebServer::processGetReq(AsyncWebServerRequest *request)
+{
+    String respString;    
+    String reqString = request->url();
+    Serial.print("****GET REQ: ");
+    reqString.replace("/", "");
+    Serial.println(reqString);    
+    
+    if (reqString == "clearlist")
+    {
+        Serial.println(">>>CLEAR LIST");
+    }
+
+    if (reqString == "start")
+    {
+        Serial.println(">>>START");
+        request->send(SPIFFS, "/start.html", "text/html");
+    }
+
+    Serial.flush();
+
+
+    // if (doRelayCommand(reqString, respString))
+    //     request->send(200, "text/plain", respString.c_str());
+    // else 
+    //     request->send(403, "text/plain", respString.c_str());
+}
