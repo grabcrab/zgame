@@ -9,7 +9,7 @@
 #include "tcu_board.h"
 #include "utils.h"
 #include "tft_utils.h"
-#include "../pin_config.h"
+#include "pin_config.h"
 
 #include "gameEngine.h"
 #include "deviceRecords.h"
@@ -143,11 +143,11 @@ void gameJob(void*)
 
 void startPlayerJob(void)
 {
-    prepareWiFi();
-    espInitRxTx((tGameRole)DEF_DEVICE_ROLE);
-           //gameJob();
-    //xTaskCreatePinnedToCore(gameJob, "gameJob", 25000, NULL, 7 | portPRIVILEGE_BIT, NULL, APP_CPU_NUM);
-    gameJob(NULL);
+    // prepareWiFi();
+    // espInitRxTx((tGameRole)DEF_DEVICE_ROLE);
+    //        //gameJob();
+    // //xTaskCreatePinnedToCore(gameJob, "gameJob", 25000, NULL, 7 | portPRIVILEGE_BIT, NULL, APP_CPU_NUM);
+    // gameJob(NULL);
 }
 
 void portalTft(String s1, String s2, String s3)

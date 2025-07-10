@@ -28,7 +28,8 @@ void ledRgbOff(void);
 
 uint32_t hexToInt(String hexStr);
 uint32_t hexoDecToInt(String strVal);
-String      utilsUint64ToHexString(uint64_t input);
-String      utilsGetDeviceID64Hex(void);
+uint64_t utilsGetDeviceID64(void);
+String   utilsUint64ToHexString(uint64_t input);
+String   utilsGetDeviceID64Hex(void);
 
 #endif //__UTILS_H__

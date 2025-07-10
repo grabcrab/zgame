@@ -1,16 +1,14 @@
 #include <Arduino.h>
 #include "gameRole.h"
+#include "deviceRecords.h"
 
 #define GAME_START_LIFE_POINT 10000
 #define GAME_MAX_TIME_MS      10 * 60 * 1000;  
 
-#define GAME_START_FAR_RSSI     -80
 #define GAME_START_FAR_HIT_PS   100
 
-#define GAME_START_MIDDL_RSSI   -65
 #define GAME_START_MIDDL_HIT_PS 250
 
-#define GAME_START_CLOSE_RSSI   -50
 #define GAME_START_CLOSE_HIT_PS 500
 
 #define GAME_START_PS_UPD_INT_MS 1000
@@ -38,3 +36,10 @@ struct tGameRecord
     uint32_t rssi2hp(int rssi);
 
 };
+
+bool testGameHuman(void);
+bool testGameZombie(void);
+bool testGameBase(void);
+
+void startCommunicator(void);
+void doGameStep(void);

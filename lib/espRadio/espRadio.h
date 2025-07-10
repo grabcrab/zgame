@@ -20,7 +20,7 @@ void prepareWiFi(void);
 bool initRadio(void);
 bool sendEspRawPacket(void *dataBuf, uint16_t bSize);
 bool sendEspPacket(tEspPacket *rData);
-void espInitRxTx(tGameRole dR, bool rx_ = true);
+void espInitRxTx(tEspPacket *txPack, bool doRx);
 void espProcessRx(unsigned long toMs);
 void espProcessTx(void);
 

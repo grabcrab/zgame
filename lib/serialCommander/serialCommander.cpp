@@ -4,6 +4,8 @@
 
 #define SERIAL_COMM_SCAN_LIST           "scan_list"
 extern void onSerialScanList(void);
+#define SERIAL_COMM_HELP                "help"
+void onHelp(void);
 
 static String getSerialCommand(void)
 {
@@ -47,10 +49,29 @@ void serialCommLoop(void)
         return;
     }
     
+    Serial.printf(">>> Serial command [%s] received\r\n", comS.c_str());
+
     if (isCommand(comS, SERIAL_COMM_SCAN_LIST))
     {        
+        onSerialScanList();
         return;
     }            
+
+    if (isCommand(comS, SERIAL_COMM_HELP))
+    {        
+        onHelp();
+        return;
+    }                
     
-    Serial.println("!!! WRONG SERIAL COMMAND!");
+    Serial.println("!!! WRONG SERIAL COMMAND");
+    onHelp();
+}
+
+void onHelp(void)
+{
+    Serial.println(">>>>>>>>>>> SERIAL COMMANDS: <<<<<<<<<<<");
+    Serial.printf("%-15s This help\r\n", SERIAL_COMM_HELP);
+    Serial.printf("%-15s Print all scanned devices\r\n", SERIAL_COMM_SCAN_LIST);
+
+    Serial.println("=========================================");
 }

@@ -14,6 +14,9 @@ struct __attribute__((packed)) tEspPacket
     uint64_t        deviceID        = 0;    
     uint64_t        packetID        = 0;    
     tGameRole       deviceRole      = grNone;
+    int             hitPointsNear   = -500; 
+    int             hitPointsMiddle = -200;
+    int             hitPointsFar    = -50;    
     uint8_t         payload[ESP_PAYLOAD_SIZE];
                     tEspPacket(tGameRole dR = grNone);
     void            print(void);

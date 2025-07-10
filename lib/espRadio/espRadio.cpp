@@ -12,7 +12,7 @@ uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 QueueHandle_t radioQ;
 
 static uint16_t deviceNum;
-static tEspPacket *rxPacket = NULL; 
+static tEspPacket rxPacket; 
 static tEspPacket *txPacket = NULL; 
 RTC_DATA_ATTR int espPacketID = 0;
 static bool wasRadioInit = false;
@@ -200,22 +200,18 @@ void testSender(uint16_t devID, uint16_t intMs)
     // }
 }
 /////////////////
-void  espInitRxTx(tGameRole dR, bool rx_)
-{    
-    if (rxPacket == NULL)
-        rxPacket = new tEspPacket(grNone);
-
-    if (txPacket == NULL)
-        txPacket = new tEspPacket(dR);
+void  espInitRxTx(tEspPacket *txPack, bool doRx)
+{        
+    txPacket = txPack;
     rssiReaderInit();
     initRadio();
-    if (rx_)
+    if (doRx)
     {
         startReceiver();
     }
 }
 
-extern void addScannedRecord(uint64_t deviceID, tGameRole deviceRole, unsigned long lastMs, int rssi);
+extern void addScannedRecord(tEspPacket *rData, unsigned long lastMs, int rssi);
 void espProcessRx(unsigned long toMs)
 {
     int rssi;
@@ -223,9 +219,9 @@ void espProcessRx(unsigned long toMs)
     unsigned long startMs = millis();
     while(millis() - startMs < toMs)
     {
-        if (receivePacket(rxPacket, rssi, ms))
+        if (receivePacket(&rxPacket, rssi, ms))
         {            
-            addScannedRecord(rxPacket->deviceID, rxPacket->deviceRole,ms, rssi);            
+            addScannedRecord(&rxPacket, /*rxPacket->deviceRole,*/ ms, rssi);            
         }
     }
 }

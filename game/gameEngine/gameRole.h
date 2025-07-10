@@ -27,3 +27,33 @@ inline const char *role2str(tGameRole r)
     }
     return "na";
 }
+
+inline tGameRole str2role(const char *roleStr)
+{   
+    if (strcmp(roleStr, "grZombie") == 0)
+    {
+        return grZombie;
+    }
+    else if (strcmp(roleStr, "grHuman") == 0)
+    {
+        return grHuman;
+    }
+    else if (strcmp(roleStr, "grBase") == 0)
+    {
+        return grBase;
+    }
+    else if (strcmp(roleStr, "grServer") == 0)
+    {
+        return grServer;
+    }
+    else if (strcmp(roleStr, "grPinger") == 0)
+    {
+        return grPinger;
+    }
+    else if (strcmp(roleStr, "grApPortalBeacon") == 0)
+    {
+        return grApPortalBeacon;
+    }    
+    Serial.println("!!! str2role ERROR: bad role string!!!");
+    return grNone;
+}
