@@ -110,7 +110,9 @@ void testRgb(void)
     for (int j = 0; j < 8; j++)
     {
         neoPixels.setPixelColor(j, neoPixels.Color(2, 0, 0));
+        neoPixels.setPixelColor(j, neoPixels.Color(2, 0, 0));
         delay(100);
+        neoPixels.show();
         neoPixels.show();
 
     }
@@ -118,7 +120,9 @@ void testRgb(void)
     for (int j = 0; j < 8; j++)
     {
         neoPixels.setPixelColor(j, neoPixels.Color(0, 0, 2));
+        neoPixels.setPixelColor(j, neoPixels.Color(0, 0, 2));
         delay(100);
+        neoPixels.show();
         neoPixels.show();
 
     }
@@ -126,7 +130,9 @@ void testRgb(void)
     for (int j = 0; j < 8; j++)
     {
         neoPixels.setPixelColor(j, neoPixels.Color(0, 2, 0));
+        neoPixels.setPixelColor(j, neoPixels.Color(0, 2, 0));
         delay(100);
+        neoPixels.show();
         neoPixels.show();
 
     }
