@@ -1,8 +1,0 @@
-{
-    "DeviceRole": "PLAYER",
-    "Device__Role":   "SERVER",
-    "ServerName":   "zgame",
-    "WiFiSSID":     "tcutestnet",
-    "WiFiPASS":     "tcutestpass",
-    "OtaLink": ""
-}

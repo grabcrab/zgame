@@ -7,9 +7,10 @@ void valPrintError(uint8_t errB)
     String errS = "ERROR";
     switch(errB)
     {
-        case ERR_VAL_SPIFFS: errS = "ERR_VAL_SPIFFS"; break;
+        case ERR_VAL_FS: errS = "ERR_VAL_FS"; break;
         case ERR_VAL_LOAD:   errS = "ERR_VAL_LOAD"; break;
         case ERR_VAL_JSON:   errS = "ERR_VAL_JSON"; break;
+        case ERR_VAL_INIT:   errS = "ERR_VAL_INIT"; break;
     }
     tftPrintText(errS);
 }
@@ -27,5 +28,8 @@ void valPlayError(uint8_t errB)
     }
     delay(1);
     neoPixels.show();
-    valPrintError(errB);
+    if (errB)
+    {        
+        valPrintError(errB);
+    }
 }

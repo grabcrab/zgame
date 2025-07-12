@@ -177,17 +177,9 @@ bool tValPlayer::loadFromJsonFile(void)
     if (loaded)
         return true;
         
-    loaded = true; 
+    loaded = true;    
 
-    if(!SPIFFS.begin(false, "/spiffs", 5))
-        if(!SPIFFS.begin(false, "/spiffs", 5))
-        {
-            Serial.println("!!! tValPlayer::loadFromJsonFile: ERROR while mounting SPIFFS!");    
-            valPlayError(ERR_VAL_SPIFFS);
-            return false;
-        }      
-
-    File f = SPIFFS.open(VAL_FILE_NAME, "r");
+    File f = PSRamFS.open(VAL_FILE_NAME, "r");
     if (!f)
     {
         Serial.printf("tValPlayer::loadFromJsonFile: ERROR loading from <%s>\r\n", VAL_FILE_NAME);

@@ -39,8 +39,7 @@ unsigned int colour = red << 11;
 
 void setupTFT(String textS = "BOOT")
 {
-    // Use TFT_eSPI Sprite made by framebuffer , unnecessary calling during use tft.xxxx function
-    Serial.begin(115200);
+    // Use TFT_eSPI Sprite made by framebuffer , unnecessary calling during use tft.xxxx function    
     /*
     * Compatible with touch version
     * Touch version, IO38 is the screen power enable

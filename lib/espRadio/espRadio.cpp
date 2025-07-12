@@ -17,46 +17,59 @@ static tEspPacket *txPacket = NULL;
 RTC_DATA_ATTR int espPacketID = 0;
 static bool wasRadioInit = false;
 static bool receiverWasStarted = false;
+extern uint8_t wifiChannel;
 
 /////////////////
 void prepareWiFi(void)
 {
+    esp_wifi_set_channel(wifiChannel, WIFI_SECOND_CHAN_NONE);
     WiFi.mode(WIFI_AP_STA);
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
     //esp_wifi_set_mode(ESPNOW_WIFI_MODE);
     esp_wifi_start();
     //esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
     esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR);
+    //esp_wifi_set_ps(WIFI_PS_NONE);
+
+    // wifi_config_t wifi_config;
+    // esp_wifi_get_config(WIFI_IF_STA, &wifi_config);
+    // esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT40);
+
+    // esp_wifi_config_11b_rate(WIFI_IF_STA, true);
   
     if (esp_wifi_set_max_tx_power(WIFI_TX_POWER) != ESP_OK)
     {
         Serial.printf("esp_wifi_set_max_tx_power(%d) ERROR!!!\r\n", WIFI_TX_POWER);
     }
-    esp_wifi_set_channel(ESP_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    esp_wifi_set_channel(wifiChannel, WIFI_SECOND_CHAN_NONE);
 }
 
 bool initRadio(void)
 {
     if (wasRadioInit)
+    {
         return true;
+    }
     // WiFi.mode(WIFI_STA);
     Serial.println();
     Serial.println(WiFi.macAddress());
 
     if (esp_now_init() != ESP_OK)
     {
-        Serial.println("Error initializing ESP-NOW");
+        Serial.println("!!! initRadio ERROR: initializing ESP-NOW");
         return false;
     }
     else
-        Serial.println("ESPNow init OK");
+    {
+        Serial.println(">>> initRadio: ESPNow init OK");
+    }
 
     // register peer
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
 
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = ESP_CHANNEL;
+    peerInfo.channel = wifiChannel;
     peerInfo.encrypt = false;
 
     esp_err_t addStatus = esp_now_add_peer(&peerInfo);
@@ -64,42 +77,43 @@ bool initRadio(void)
     if (addStatus == ESP_OK)
     {
         // Pair success
-        Serial.println("Pair success");
+        Serial.println(">>> initRadio: pair success");
+        wasRadioInit = true;
         return true;
     }
     else if (addStatus == ESP_ERR_ESPNOW_NOT_INIT)
     {
         // How did we get so far!!
-        Serial.println("ESPNOW Not Init");
+        Serial.println("!!! initRadio ERROR: ESPNOW Not Init");
         return false;
     }
     else if (addStatus == ESP_ERR_ESPNOW_ARG)
     {
-        Serial.println("Invalid Argument");
+        Serial.println("!!! initRadio ERROR: Invalid Argument");
         return false;
     }
     else if (addStatus == ESP_ERR_ESPNOW_FULL)
     {
-        Serial.println("Peer list full");
+        Serial.println("!!! initRadio ERROR: Peer list full");
         return false;
     }
     else if (addStatus == ESP_ERR_ESPNOW_NO_MEM)
     {
-        Serial.println("Out of memory");
+        Serial.println("!!! initRadio ERROR: Out of memory");
         return false;
     }
     else if (addStatus == ESP_ERR_ESPNOW_EXIST)
     {
-        Serial.println("Peer Exists");
+        Serial.println("!!! initRadio ERROR: Peer Exists");
         return true;
     }
     else
     {
-        Serial.println("Not sure what happened");
+        Serial.println("!!! initRadio ERROR: Not sure what happened");
         return false;
     }
 
-    return true;
+    return false;
 }
 /////////////////
 bool sendEspPacket(tEspPacket *rData)
@@ -114,6 +128,7 @@ bool sendEspRawPacket(void *dataBuf, uint16_t bSize)
 
     if (!wasRadioInit)
     {
+        Serial.println("E112");
         return false;
     }
 
@@ -221,13 +236,15 @@ void espProcessRx(unsigned long toMs)
     {
         if (receivePacket(&rxPacket, rssi, ms))
         {            
-            addScannedRecord(&rxPacket, /*rxPacket->deviceRole,*/ ms, rssi);            
+            addScannedRecord(&rxPacket, /*rxPacket->deviceRole,*/ ms, rssi);                        
         }
     }
 }
 
 void espProcessTx(void)
 {
-    sendEspPacket(txPacket);       
+    if (!sendEspPacket(txPacket))
+    {        
+    }
 }
 

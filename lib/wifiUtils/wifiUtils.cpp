@@ -2,6 +2,7 @@
 
 #include <HTTPClient.h>
 #include <Preferences.h>
+#include <esp_wifi.h>
 
 ////////////////////////////////
 String wifiSsid = "";
@@ -105,6 +106,7 @@ void wifiGotIP_evt(WiFiEvent_t event)
     Serial.print(WiFi.SSID());
     Serial.print(" RSSI: ");
     Serial.println(WiFi.RSSI());
+    delay(50);
     wifiConnected = true;
     // wifiInternetConnected =
 
@@ -123,7 +125,7 @@ void wifiStationDisconnected_evt(WiFiEvent_t event)
     WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
 } // void wifiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 ////////////////////////////////////////////////////////////
-void wifiInit(String ssid, String pass)
+void wifiInit(String ssid, String pass, uint8_t wifiChannel)
 {
     wifiSsid = ssid;
     wifiPass = pass;
@@ -136,7 +138,9 @@ void wifiInit(String ssid, String pass)
     // WiFi.onEvent(wifiStationConnected_evt,  SYSTEM_EVENT_STA_CONNECTED);
     // WiFi.onEvent(wifiGotIP_evt, SYSTEM_EVENT_STA_GOT_IP);
     // WiFi.onEvent(wifiStationDisconnected_evt, SYSTEM_EVENT_STA_DISCONNECTED);
-    WiFi.begin(wifiSsid.c_str(), wifiSsid.c_str());
+    // WiFi.channel(wifiChannel);
+    // esp_wifi_set_channel(wifiChannel, WIFI_SECOND_CHAN_NONE);
+    WiFi.begin(wifiSsid.c_str(), wifiSsid.c_str()); //, wifiChannel
 
 } // bool wifiInit(void)
 ////////////////////////////////////////////
@@ -298,4 +302,12 @@ void setWiFiToLocal(bool localNet)
     prefs.begin("wifi");
     prefs.putBool("local", localNet);
     prefs.end();    
+}
+
+void wifiMaxPower(void)
+{
+    WiFi.setTxPower(WIFI_POWER_19_5dBm); 
+    int8_t power;
+    esp_wifi_get_max_tx_power(&power);
+    Serial.println(">>> wifiMaxPower: " + String(power/4.0) + " dBm");
 }

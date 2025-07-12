@@ -2,10 +2,8 @@
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include <FS.h>
-#include <SPIFFS.h>
+#include "PSRamFS.h"
 #include <ArduinoJson.h>
-
 #include "xErrCodes.h"
 
 #define VAL_PIXELS_NUM          8

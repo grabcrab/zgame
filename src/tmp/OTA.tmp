@@ -1,0 +1,249 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <Update.h>
+#include <ArduinoJson.h>
+#include <MD5Builder.h>
+#include <esp_partition.h>
+#include <esp_ota_ops.h>
+#include "version.h"
+
+// WiFi settings
+const char *ssid = "tcutestnet";
+const char *password = "tcutestpass";
+
+// OTA server settings
+const char *otaServerURL = "http://192.168.1.120:5005"; // Your server IP
+const unsigned long checkInterval = 5000;               // Check every 30 seconds
+
+// Global variables
+String currentFirmwareVersion = "";
+unsigned long lastCheck = 0;
+
+void performOTAUpdate(int firmwareSize);
+void otaProgressCallback(int progress);
+void otaProgressCallback(int progress);
+String getCurrentFirmwareMD5()
+{
+    // Use built-in ESP32 function to get current sketch MD5
+    String md5 = ESP.getSketchMD5();
+    Serial.printf("Current firmware MD5: %s\n", md5.c_str());
+    return md5;
+}
+
+void checkForUpdates()
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("WiFi not connected");
+        return;
+    }
+
+    HTTPClient http;
+    http.begin(String(otaServerURL) + "/version");
+
+    int httpCode = http.GET();
+    if (httpCode == HTTP_CODE_OK)
+    {
+        String payload = http.getString();
+
+        // Parse JSON response
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, payload);
+
+        if (error)
+        {
+            Serial.println("Failed to parse JSON response");
+            http.end();
+            return;
+        }
+
+        String serverVersion = doc["version"];
+        int firmwareSize = doc["size"];
+        String filename = doc["filename"];
+
+        Serial.println("Server response:");
+        Serial.println("  Server MD5: " + serverVersion);
+        Serial.println("  Current MD5: " + currentFirmwareVersion);
+        Serial.println("  Size: " + String(firmwareSize));
+        Serial.println("  Filename: " + filename);
+
+        // Compare versions
+        if (serverVersion != currentFirmwareVersion)
+        {
+            Serial.println("MD5 mismatch detected! Starting update...");
+            Serial.println("  Server:  " + serverVersion);
+            Serial.println("  Current: " + currentFirmwareVersion);
+            performOTAUpdate(firmwareSize);
+        }
+        else
+        {
+            Serial.println("Firmware is up to date - MD5 match");
+        }
+    }
+    else
+    {
+        Serial.printf("HTTP error: %d\n", httpCode);
+    }
+
+    http.end();
+}
+
+void performOTAUpdate(int firmwareSize)
+{
+    HTTPClient http;
+    http.begin(String(otaServerURL) + "/update");
+
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK)
+    {
+        Serial.printf("Failed to start download: %d\n", httpCode);
+        http.end();
+        return;
+    }
+
+    int contentLength = http.getSize();
+    if (contentLength != firmwareSize)
+    {
+        Serial.println("Content length mismatch");
+        http.end();
+        return;
+    }
+
+    // Start OTA update
+    if (!Update.begin(contentLength))
+    {
+        Serial.println("Not enough space for update");
+        http.end();
+        return;
+    }
+
+    Serial.println("Starting OTA update...");
+    Serial.printf("Firmware size: %d bytes\n", contentLength);
+
+    WiFiClient *client = http.getStreamPtr();
+    int written = 0;
+    int progress = 0;
+    int lastProgress = -1;
+
+    uint8_t buffer[128];
+
+    while (http.connected() && (written < contentLength))
+    {
+        size_t available = client->available();
+        if (available)
+        {
+            int readBytes = client->readBytes(buffer, min(available, sizeof(buffer)));
+
+            if (readBytes > 0)
+            {
+                if (Update.write(buffer, readBytes) != readBytes)
+                {
+                    Serial.println("Write failed");
+                    break;
+                }
+                written += readBytes;
+
+                // Calculate and display progress
+                progress = (written * 100) / contentLength;
+                if (progress != lastProgress && progress % 5 == 0)
+                {
+                    otaProgressCallback(progress);
+                    lastProgress = progress;
+                }
+            }
+        }
+        delay(1);
+    }
+
+    if (written == contentLength)
+    {
+        Serial.println("Update completed successfully");
+        otaProgressCallback(100);
+    }
+    else
+    {
+        Serial.printf("Update failed. Written: %d, Expected: %d\n", written, contentLength);
+    }
+
+    if (Update.end())
+    {
+        if (Update.isFinished())
+        {
+            Serial.println("Update successfully finished. Rebooting...");
+            delay(1000);
+            ESP.restart();
+        }
+        else
+        {
+            Serial.println("Update failed to finish");
+        }
+    }
+    else
+    {
+        Serial.printf("Update error: %d\n", Update.getError());
+    }
+
+    http.end();
+}
+
+void otaProgressCallback(int progress)
+{
+    // Callback function for update progress display
+    // You can add your own logic here:
+    // - Send progress to server
+    // - Update display
+    // - LED blinking
+    // - Send to MQTT
+
+    Serial.printf("OTA Progress: %d%%\n", progress);
+
+    // Example: blink built-in LED
+    if (progress % 10 == 0)
+    {
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    }
+
+    // Example: send progress via Serial in JSON format
+    Serial.printf("{\"ota_progress\": %d}\n", progress);
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    delay(3000);
+    Serial.println("Starting ESP32 OTA Client");
+    Serial.println(VERSION_STR);
+    delay(3000);
+
+    // Connect to WiFi
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println();
+    Serial.print("Connected to WiFi. IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Get current firmware MD5 using built-in function
+    currentFirmwareVersion = getCurrentFirmwareMD5();
+    Serial.print("Current firmware MD5: ");
+    Serial.println(currentFirmwareVersion);
+
+    // First update check
+    checkForUpdates();
+}
+
+void loop()
+{
+    // Check for updates with specified interval
+    if (millis() - lastCheck > checkInterval)
+    {
+        checkForUpdates();
+        lastCheck = millis();
+    }
+
+    // Your main code here
+    delay(1000);
+}

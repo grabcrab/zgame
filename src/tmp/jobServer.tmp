@@ -71,7 +71,7 @@ void wifiConnect(void)
 {
     valPlayPattern("BlueLine");
     tftPrintThreeLines("Wi-Fi connect", zgConfig()->WiFiSSID, zgConfig()->WiFiPASS, TFT_BLACK, TFT_GREEN);
-    wifiInit(zgConfig()->WiFiSSID, zgConfig()->WiFiPASS);
+    wifiInit(zgConfig()->WiFiSSID, zgConfig()->WiFiPASS, wifiChannel);
     while(!wifiIsConnected())
     {
         Serial.printf(">>> Wi-Fi connection: %s / %s\r\n", zgConfig()->WiFiSSID.c_str(), zgConfig()->WiFiPASS.c_str());

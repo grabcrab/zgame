@@ -3,9 +3,6 @@
 #include "Arduino.h"
 #include "Audio.h"
 
-#include "FS.h"
-#include "SPIFFS.h"
-
 static Audio audio;
 
 bool audioPlay(const char *fName, int volume)
@@ -15,7 +12,7 @@ bool audioPlay(const char *fName, int volume)
     audio.setVolume(volume);
     audio.setBufsize(0, 1000000);
 
-    if (audio.connecttoFS(SPIFFS, fName))
+    if (audio.connecttoFS(PSRamFS, fName))
     {
         //Serial.println("FS play started");
         return true;

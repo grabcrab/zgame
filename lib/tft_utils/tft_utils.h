@@ -44,6 +44,7 @@ struct tSprite
 };
 
 //void tftInit(void);
+void setupTFT(String textS);
 void tftSleep(void);
 void tftProcessMainScreen(tTftMainScreenRecord *dRec);
 void tftBootScreen(void);
@@ -54,6 +55,7 @@ void tftPrintThreeLines(String txt1, String txt2, String txt3, uint16_t bgColor,
 
 void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit = 0, uint16_t hLimit = 0);
 void tftTestBmp(void);
+
 
 
 #endif //__TFT_UTILS_H__
