@@ -1,0 +1,35 @@
+A server-side Python script that does the following:
+
+Handles GET requests from remote devices. Each request contains the following information in JSON format:
+Device ID (string)
+IP address (string)
+RSSI (number)
+Role (string)
+Status (string)
+Health points
+Battery charge percentage (%)
+Comment
+In response to the request, return:
+
+Role (string, default "neutral")
+Status (string, possible values: sleep, preparation, game, game over)
+Game start countdown timeout, seconds
+Game duration, minutes Parameter values will be described in the next step.
+The parameters and statuses received from devices are updated in memory; no need to save to disk.
+
+Display a web interface page. 2.1. Main screen:
+Image from a local file (logo)
+"Login" button All devices are sent the "Sleep" status. 2.2. Game preparation screen:
+List of devices and their parameters in a table from point (1). Sortable by ID, MAC, Role, Status, Health points, battery percentage (click on header to sort). Data updates in real-time as packets arrive from devices.
+Input field for "Percentage of humans," number from 25% to 75%.
+Input field for game start countdown timeout, seconds.
+Input field for game duration, minutes.
+"Continue" button. All devices are sent the "Preparation" status. Clicking the "Continue" button leads to screen 2.3. 2.3. Game start screen:
+All devices are randomly assigned as "humans" or "zombies" based on the "Percentage of humans," with approximate rounding.
+On the screen: two separate tables, left for "Zombies," right for "Humans." Data is displayed and updated as in the previous screen.
+Above the tables: game timer in HH:MM:SS format.
+Devices receive parameters in responses based on their roles. Status is "Game."
+"End Game" button. When clicked, prompts for confirmation and proceeds to the next screen. 2.4. Game over screen:
+Same table as in the previous screen.
+Devices are sent the "Game Over" status.
+"Finish" button. When clicked, prompts for confirmation and returns to 2.1.

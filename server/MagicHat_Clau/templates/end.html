@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Ended</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4">
+    <h1 class="text-2xl font-bold mb-4">Game Ended</h1>
+    <div class="flex space-x-4">
+        <div class="w-1/2">
+            <h3 class="text-lg font-bold mb-2">Zombies</h3>
+            <table class="table-auto w-full mb-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2">ID</th>
+                        <th class="px-4 py-2">IP</th>
+                        <th class="px-4 py-2">RSSI</th>
+                        <th class="px-4 py-2">Role</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Health</th>
+                        <th class="px-4 py-2">Battery</th>
+                        <th class="px-4 py-2">Comment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in zombies %}
+                    <tr>
+                        <td class="border px-4 py-2">{{ device.id }}</td>
+                        <td class="border px-4 py-2">{{ device.ip }}</td>
+                        <td class="border px-4 py-2">{{ device.rssi }}</td>
+                        <td class="border px-4 py-2">{{ device.role }}</td>
+                        <td class="border px-4 py-2">{{ device.status }}</td>
+                        <td class="border px-4 py-2">{{ device.health }}</td>
+                        <td class="border px-4 py-2">{{ device.battery }}%</td>
+                        <td class="border px-4 py-2">{{ device.comment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="w-1/2">
+            <h3 class="text-lg font-bold mb-2">Humans</h3>
+            <table class="table-auto w-full mb-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2">ID</th>
+                        <th class="px-4 py-2">IP</th>
+                        <th class="px-4 py-2">RSSI</th>
+                        <th class="px-4 py-2">Role</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Health</th>
+                        <th class="px-4 py-2">Battery</th>
+                        <th class="px-4 py-2">Comment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in humans %}
+                    <tr>
+                        <td class="border px-4 py-2">{{ device.id }}</td>
+                        <td class="border px-4 py-2">{{ device.ip }}</td>
+                        <td class="border px-4 py-2">{{ device.rssi }}</td>
+                        <td class="border px-4 py-2">{{ device.role }}</td>
+                        <td class="border px-4 py-2">{{ device.status }}</td>
+                        <td class="border px-4 py-2">{{ device.health }}</td>
+                        <td class="border px-4 py-2">{{ device.battery }}%</td>
+                        <td class="border px-4 py-2">{{ device.comment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <button onclick="if(confirm('Finish and return to main screen?')) window.location.href='{{ url_for('main_screen') }}'" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Finish</button>
+</body>
+</html>

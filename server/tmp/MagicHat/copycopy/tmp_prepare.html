@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Prepare Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        function sortTable(n) {
+            var table, rows, switching = true, i, x, y, shouldSwitch, dir = "asc", switchcount = 0;
+            table = document.getElementById("deviceTable");
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[n];
+                    y = rows[i + 1].getElementsByTagName("TD")[n];
+                    if (dir == "asc" && x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    } else if (dir == "desc" && x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount++;
+                } else if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+
+        // Auto-refresh table
+        setInterval(function() {
+            fetch('/prepare')
+                .then(response => response.text())
+                .then(html => {
+                    document.body.innerHTML = html;
+                });
+        }, 5000);
+    </script>
+</head>
+<body class="bg-gray-100 p-4">
+    <h1 class="text-2xl font-bold mb-4">Game Preparation</h1>
+    <table id="deviceTable" class="table-auto w-full mb-4">
+        <thead>
+            <tr class="bg-gray-200">
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(0)">ID</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(1)">IP</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(2)">RSSI</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(3)">Role</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(4)">Status</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(5)">Health</th>
+                <th class="px-4 py-2 cursor-pointer" onclick="sortTable(6)">Battery</th>
+                <th class="px-4 py-2">Comment</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td class="border px-4 py-2">{{ device.id }}</td>
+                <td class="border px-4 py-2">{{ device.ip }}</td>
+                <td class="border px-4 py-2">{{ device.rssi }}</td>
+                <td class="border px-4 py-2">{{ device.role }}</td>
+                <td class="border px-4 py-2">{{ device.status }}</td>
+                <td class="border px-4 py-2">{{ device.health }}</td>
+                <td class="border px-4 py-2">{{ device.battery }}%</td>
+                <td class="border px-4 py-2">{{ device.comment }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <form method="POST" class="space-y-4">
+        <div>
+            <label for="human_percentage" class="block">Human Percentage (25-75%):</label>
+            <input type="number" id="human_percentage" name="human_percentage" min="25" max="75" value="{{ game_state.human_percentage }}" class="border p-2 w-full">
+        </div>
+        <div>
+            <label for="game_timeout" class="block">Game Timeout (seconds):</label>
+            <input type="number" id="game_timeout" name="game_timeout" value="{{ game_state.game_timeout }}" class="border p-2 w-full">
+        </div>
+        <div>
+            <label for="game_duration" class="block">Game Duration (minutes):</label>
+            <input type="number" id="game_duration" name="game_duration" value="{{ game_state.game_duration }}" class="border p-2 w-full">
+        </div>
+        <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Continue</button>
+    </form>
+</body>
+</html>
