@@ -1,0 +1,23 @@
+{
+  "device_name": "BAZA_GAME_001",
+  "base_station": true,
+  "wifi_networks": [
+        {
+            "ssid": "tcute_stnet",
+            "password": "tcutes_tpass"
+        },
+        {
+            "ssid": "NOKIA-E86F38424E4B",
+            "password": "0757127746"
+        },
+        {
+            "ssid": "BackupWiFi",
+            "password": "backup456"
+        }
+  ],
+  "servers": {
+    "file_server": "http://192.168.1.120:5001",
+    "game_server": "https://game.example.com:9999", 
+    "ota_server":  "http://192.168.1.120:5005"
+  }
+}

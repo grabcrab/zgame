@@ -13,7 +13,6 @@
 
 #include "valPlayer.h"
 #include "tft_utils.h"
-#include "zgConfig.h"
 #include "webPortalBase.h"
 #include "../include/version.h"
 
