@@ -9,6 +9,8 @@
 
 void boardPowerOn(void);
 void boardPowerOff(void);
+uint16_t boardGetVcc(void);
+uint8_t boardGetVccPercent(void);
 
 bool accelInit(void);
 bool accelWakeOnShake(void);

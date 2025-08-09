@@ -102,6 +102,8 @@ extern Adafruit_NeoPixel neoPixels;
 
 void audioLoop(void);
 bool audioPlay(const char *fName, int volume);
+void audioStop(void);
+bool audioIsRunning(void);
 
 void valPlayError(uint8_t errB);
 

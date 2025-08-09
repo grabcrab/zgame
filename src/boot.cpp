@@ -2,7 +2,6 @@
 
 #include <Wire.h>
 
-
 #include "PSRamFS.h"
 #include "serverSync.h"
 #include "board.h"
@@ -10,6 +9,7 @@
 #include "valPlayer.h"
 #include "version.h"
 #include "xgConfig.h"
+#include "patterns.h"
 
 static void boardInit(void)
 {
@@ -18,15 +18,15 @@ static void boardInit(void)
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 100000);
     if (DEF_USE_TFT)
     {
-        setupTFT("BOOT"); 
-        tftPrintText("BAZA BOOT");
-        delay(500);
+       setupTFT("BOOT"); 
+       tftPrintText("BAZA BOOT");
+       delay(500);              
     }
     valPlayError(ERR_VAL_OK);
     //delay(1000);
 }
 
-static void checkSleep(bool resetTimer = false)
+void checkSleep(bool resetTimer)
 {
     static uint32_t lastFedMs = 0;
     if (resetTimer)
@@ -81,10 +81,131 @@ static bool accelInitOnBoot(void)
     return false;
 }
 
+static void configBoot(void)
+{
+    tftPrintText("CONFIG");
+    delay(500);
+    if (!configInit())
+    {
+        tftPrintText("!CONFIG ERROR!");
+        while(1)
+        {
+            delay(1);
+            checkSleep();
+        }
+    }
+    checkSleep(true);
+}
+
+static void accelBoot(void)
+{
+    tftPrintText("ACCELEROMETER");
+
+    if (!accelInitOnBoot())
+    {
+        tftPrintText("!ACCEL. ERROR!");
+        delay(2500);
+        //while(1)
+        // {
+        //     delay(1);
+        //     checkSleep();
+        // }
+    }
+    checkSleep(true);
+}
+
+static void netBoot(void)
+{    
+    int a = 0;
+    tftPrintText("NETWORK");
+    delay(500);
+
+    if (netConnect(DEF_NET_WAIT_MS))
+    {        
+        while(!netWait(DEF_NET_WAIT_MS))
+        {
+            a++;
+            Serial.printf("*** Wi-Fi connection attempt #%d\r\n", a);
+            tftPrintText("NETWORK " + String(a));
+            checkSleep();
+        }
+    }
+    else 
+    {
+        tftPrintText("!NET. ERROR!");
+        while(true)
+        {
+            checkSleep();
+        }
+    }
+    checkSleep(true);
+}
+
+static void otaBoot(void)
+{
+    int a = 0;    
+    tftPrintText("OTA");
+    delay(500);    
+    while (!syncOTA(ConfigAPI::getOTAServerUrl().c_str()))
+    {        
+        if (DEF_CAN_SKIP_OTA)
+        {
+            Serial.println("*** WARNING: OTA SKIPPED!");
+            break;
+        }
+        else 
+        {
+            a++;
+            Serial.printf("!!! OTA sync failed, attempt #%d\r\n", a);
+            tftPrintText("OTA " + String(a));
+        }
+        checkSleep();
+    }
+    checkSleep(true);
+}
+
+static void fileSyncBoot(void)
+{
+    int a = 0;    
+    tftPrintText("FILE SYNC");
+    delay(500);
+    while (!syncFiles(ConfigAPI::getFileServerUrl().c_str()))
+    {
+        a++;
+        Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
+        tftPrintText("FILE SYNC " + String(a));
+        checkSleep();
+    }
+    checkSleep(true);    
+}
+
+static void valPlayerBoot(void)
+{
+    tftPrintText("VAL_PLAYER");
+    delay(500);
+    if (!valPlayerInit())
+    {
+        while(1)
+        {
+            delay(1000);
+            Serial.println("Error VAL init!!!");
+            valPlayError(ERR_VAL_INIT);
+            checkSleep();
+        }
+    }
+}
+
+static void radioBoot(void)
+{
+    checkSleep(true);
+    tftPrintText("RADIO");
+    radioConnect();
+    delay(500);
+}
+
 bool initOnBoot(void)
 {
-    bool wasError = false;
-    int a = 0;
+    bool wasError = false;    
 
     Serial.begin(115200);
 
@@ -111,192 +232,24 @@ bool initOnBoot(void)
         }
         return false;
     }
-    checkSleep(true);
-
-    tftPrintText("CONFIG");
-    delay(500);
-
-    if (!configInit())
+    else 
     {
-        tftPrintText("!CONFIG ERROR!");
-        while(1)
-        {
-            delay(1);
-            checkSleep();
-        }
+    
     }
     checkSleep(true);
-
-    tftPrintText("ACCELEROMETER");
-
-    if (!accelInitOnBoot())
-    {
-        tftPrintText("!ACCEL. ERROR!");
-        while(1)
-        {
-            delay(1);
-            checkSleep();
-        }
-    }
-    checkSleep(true);
-
-    tftPrintText("NETWORK");
-    delay(500);
-
-    if (!netConnect(DEF_NET_WAIT_MS))
-    {        
-        while(!netWait(DEF_NET_WAIT_MS))
-        {
-            a++;
-            Serial.printf("*** Wi-Fi connection attempt #%d\r\n", a);
-            tftPrintText("NETWORK " + String(a));
-            checkSleep();
-        }
-    }
-    checkSleep(true);
-
-    a = 0;    
-    tftPrintText("OTA");
-    delay(500);    
-    while (!syncOTA(DEF_OTA_SERVER_ADDR))
-    {        
-        if (DEF_CAN_SKIP_OTA)
-        {
-            Serial.println("*** WARNING: OTA SKIPPED!");
-            break;
-        }
-        else 
-        {
-            a++;
-            Serial.printf("!!! OTA sync failed, attempt #%d\r\n", a);
-            tftPrintText("OTA " + String(a));
-        }
-        checkSleep();
-    }
-    checkSleep(true);
-
-    a = 0;    
-    tftPrintText("FILE SYNC");
-    delay(500);
-    while (!syncFiles(DEF_FILE_SERVER_ADDR))
-    {
-        a++;
-        Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
-        tftPrintText("FILE SYNC " + String(a));
-        checkSleep();
-    }
-    checkSleep(true);
-
-    tftPrintText("VAL_PLAYER");
-    delay(500);
-
-    if (!valPlayerInit())
-    {
-        while(1)
-        {
-            delay(1000);
-            Serial.println("Error VAL init!!!");
-            valPlayError(ERR_VAL_INIT);
-            checkSleep();
-        }
-    }
-
-    checkSleep(true);
-    tftPrintText("RADIO");
-    radioConnect();
-    delay(500);
-
+    accelBoot();    
+    configBoot();
+    netBoot();
+    fileSyncBoot();        
+    //valPlayPattern(WHILE_BOOT_PATTERN);    
+    otaBoot();
+    radioBoot();
+    valPlayerBoot();  
     valPlayPattern(ON_BOOT_PATTERN);
-    tftPrintText("READY!");
-    delay(500);
+    bazaLogo();    
+    //tftPrintText("READY!");    
 
     return true;
-
-
-    //  bool wasError = false;
-    // int a = 0;
-
-    // Serial.begin(115200);
-
-
-    // if (!psFsInit())
-    // {
-    //     wasError = true;
-    // }    
-
-    // boardInit();      
-
-    // delay(1500);
-    // Serial.println(">>> BOOT");
-    // Serial.print(">>> BAZA GAME TERMINAL ");
-    // Serial.println(VERSION_STR);
-    // delay(10);
-
-
-    // if (wasError)
-    // {
-    //     return false;
-    // }
-
-    // tftPrintText("NETWORK");
-
-    // if (!netConnect(DEF_NET_WAIT_MS))
-    // {        
-    //     while(!netWait(DEF_NET_WAIT_MS))
-    //     {
-    //         a++;
-    //         Serial.printf("*** Wi-Fi connection attempt #%d\r\n", a);
-    //         tftPrintText("NETWORK " + String(a));
-    //     }
-    // }
-
-    // a = 0;    
-    // tftPrintText("OTA");
-    // while (!syncOTA(DEF_OTA_SERVER_ADDR))
-    // {        
-    //     if (DEF_CAN_SKIP_OTA)
-    //     {
-    //         Serial.println("*** WARNING: OTA SKIPPED!");
-    //         break;
-    //     }
-    //     else 
-    //     {
-    //         a++;
-    //         Serial.printf("!!! OTA sync failed, attempt #%d\r\n", a);
-    //         tftPrintText("OTA " + String(a));
-    //     }
-    // }
-
-    // a = 0;    
-    // tftPrintText("FILE SYNC");
-    // while (!syncFiles(DEF_FILE_SERVER_ADDR))
-    // {
-    //     a++;
-    //     Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
-    //     tftPrintText("FILE SYNC " + String(a));
-    // }
-    
-    // tftPrintText("VAL_PLAYER");
-
-    // if (!valPlayerInit())
-    // {
-    //     while(1)
-    //     {
-    //         delay(1000);
-    //         Serial.println("Error VAL init!!!");
-    //         valPlayError(ERR_VAL_INIT);
-    //     }
-    // }
-
-    // tftPrintText("RADIO");
-    // radioConnect();
-    // delay(500);
-
-    // valPlayPattern(ON_BOOT_PATTERN);
-    // tftPrintText("READY!");
-    // delay(500);
-
-    // return true;
 }
 
 void otaProgressCallback(int progress)

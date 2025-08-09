@@ -1,16 +1,9 @@
-/**
- * @file      TFT_eSPI_Sprite.ino
- * @author    Lewis He (lewishe@outlook.com)
- * @license   MIT
- * @copyright Copyright (c) 2023  Shenzhen Xin Yuan Electronic Technology Co., Ltd
- * @date      2023-06-14
- *
- */
-
 #include "rm67162.h"
 #include <TFT_eSPI.h>   //https://github.com/Bodmer/TFT_eSPI
 #include "true_color.h"
 #include "tft_utils.h"
+
+#include "PSRamFS.h"
 
 unsigned int rainbow(uint8_t value);
 void drawRainbow();
@@ -88,12 +81,28 @@ void setupTFT(String textS = "BOOT")
 }
 
 
-void tftPrintText(String txt, uint16_t bgColor, uint16_t txtColor)
+void tftPrintText(String txt, uint16_t bgColor, uint16_t txtColor, bool dontClear)
 {
-    spr.fillSprite(bgColor);
+    if (!dontClear)
+    {
+        spr.fillSprite(bgColor);
+    }
     spr.setTextColor(txtColor, bgColor);
     spr.setTextDatum(MC_DATUM);
     spr.setTextSize(2);
+    spr.drawString(txt, X_TFT_WIDTH/2, X_TFT_HEIGHT/2, 4);
+    lcd_PushColors(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)spr.getPointer());
+}
+
+void tftPrintTextBig(String txt, uint16_t bgColor, uint16_t txtColor, bool dontClear)
+{
+    if (!dontClear)
+    {
+        spr.fillSprite(bgColor);
+    }
+    spr.setTextColor(txtColor, bgColor);
+    spr.setTextDatum(MC_DATUM);
+    spr.setTextSize(5);
     spr.drawString(txt, X_TFT_WIDTH/2, X_TFT_HEIGHT/2, 4);
     lcd_PushColors(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)spr.getPointer());
 }
@@ -141,11 +150,12 @@ void tSprite::drawBmp(const char *filename, int16_t x, int16_t y)
 
     fs::File bmpFS;
     
-    bmpFS = SPIFFS.open(filename, "r");
+    bmpFS = PSRamFS.open(filename, "r");
 
     if (!bmpFS)
     {
-        Serial.println("!!! tSprite::tftDrawBmp: File not found");
+        Serial.print("!!! tSprite::tftDrawBmp: File not found: ");
+        Serial.println(filename);
         return;
     }
 

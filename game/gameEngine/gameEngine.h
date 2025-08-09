@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "gameRole.h"
+#include "gameComm.h"
 #include "deviceRecords.h"
 
 #define GAME_START_LIFE_POINT 10000
@@ -41,5 +42,7 @@ bool testGameHuman(void);
 bool testGameZombie(void);
 bool testGameBase(void);
 
+void gameOnCritical(String errS);
+void gameWait(void);
 void startCommunicator(void);
 void doGameStep(void);

@@ -46,20 +46,29 @@ void tLedPattern::loopPlay(void)
             if (circular)
             {
                 stripIdx = 0;
-                if (PlaySound)
-                {
-                    audioPlay(SoundFile, SoundLevel);
-                }
+                // if (PlaySound)
+                // {
+                //     audioPlay(SoundFile, SoundLevel);
+                // }
             }
             else
             {
+                audioStop();
                 isPlaying = false; 
                 stripIdx--;
             }
         }
     }
     if (PlaySound)
+    {
         audioLoop();
+        if (!audioIsRunning())
+        {
+            audioPlay(SoundFile, SoundLevel);
+            // Serial.print("*** tLedPattern::loopPlay RESTARTED: ");
+            // Serial.println(SoundFile);
+        }
+    }
 }
 
 void tLedPattern::loadFromJson(JsonObject pattern)

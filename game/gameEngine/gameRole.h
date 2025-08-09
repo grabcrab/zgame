@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#define R2R_INT_MS  1000
+
 enum tGameRole
 {
     grNone = 0,

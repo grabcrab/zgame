@@ -2,7 +2,7 @@
 
 #include "TFT_eSPI.h"
 
-#include "..\..\include\pin_config.h"
+#include "pin_config.h"
 #include "rm67162.h"
 
 //TFT_eSPI tft = TFT_eSPI();

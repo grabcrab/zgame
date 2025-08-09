@@ -49,7 +49,8 @@ void tftSleep(void);
 void tftProcessMainScreen(tTftMainScreenRecord *dRec);
 void tftBootScreen(void);
 void tftSleepScreen(void);
-void tftPrintText(String txt, uint16_t bgColor = TFT_BLACK, uint16_t txtColor = TFT_GREEN);
+void tftPrintText(String txt, uint16_t bgColor = TFT_BLACK, uint16_t txtColor = TFT_GREEN, bool dontClear = false);
+void tftPrintTextBig(String txt, uint16_t bgColor = TFT_BLACK, uint16_t txtColor = TFT_GREEN, bool dontClear = false);
 void tftPrintThreeLines(String txt1, String txt2, String txt3, uint16_t bgColor, uint16_t txtColor);
 
 
@@ -57,5 +58,10 @@ void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit = 0,
 void tftTestBmp(void);
 
 
+//Picture functions
+void bazaLogo(void);
+void gameWaitLogo(void);
+void zombiPreWaitPicture(void);
+void humanPreWaitPicture(void);
 
 #endif //__TFT_UTILS_H__

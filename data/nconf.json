@@ -3,8 +3,8 @@
   "base_station": true,
   "wifi_networks": [
         {
-            "ssid": "tcute_stnet",
-            "password": "tcutes_tpass"
+            "ssid": "tcutestnet",
+            "password": "tcutestpass"
         },
         {
             "ssid": "NOKIA-E86F38424E4B",
@@ -17,7 +17,7 @@
   ],
   "servers": {
     "file_server": "http://192.168.1.120:5001",
-    "game_server": "https://game.example.com:9999", 
+    "game_server": "http://192.168.1.120:5000", 
     "ota_server":  "http://192.168.1.120:5005"
   }
 }

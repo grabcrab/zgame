@@ -52,10 +52,13 @@ static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
 
 bool WiFiAutoConnect::begin(uint32_t toMs)
 {
-    if (ConfigAPI::isInitialized() == false)
+    if (ConfigAPI::isInitialized() == false)    
     {
-        Serial.println("!!! WiFiAuto: Config not ready");
-        return false;
+        if (!ConfigAPI::initialize())
+        {
+            Serial.println("!!! WiFiAuto: Config not ready");
+            return false;
+        }
     }
 
     WiFi.disconnect(true);
@@ -84,7 +87,8 @@ bool WiFiAutoConnect::begin(uint32_t toMs)
     }
 
     Serial.printf(">>> WiFiAuto: (Re) Starting WiFiMulti, %d ms\r\n", toMs);
-    return wifiMulti.run(toMs) == WL_CONNECTED;
+    wifiMulti.run(toMs);
+    return true;
 }
 
 bool WiFiAutoConnect::isConnected(void)

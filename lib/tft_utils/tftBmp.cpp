@@ -2,6 +2,7 @@
 #include <SPIFFS.h>
 #include "TFT_eSPI.h"
 #include "rm67162.h"
+#include "PSRamFS.h"
 
 extern TFT_eSprite spr;
 
@@ -35,11 +36,12 @@ void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit, uin
     fs::File bmpFS;
 
     // Open requested file on SD card
-    bmpFS = SPIFFS.open(filename, "r");
+    bmpFS = PSRamFS.open(filename, "r");
 
     if (!bmpFS)
     {
-        Serial.print("File not found");
+        Serial.print("!!!tftDrawBmp ERROR. File not found: ");
+        Serial.println(filename);
         return;
     }
 
@@ -97,7 +99,7 @@ void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit, uin
 
                 // Push the pixel row to screen, pushImage will crop the line if needed
                 // y is decremented as the BMP image is drawn bottom up
-                Serial.printf("%d %d\r\n", y, maxY);
+                //Serial.printf("%d %d\r\n", y, maxY);
                 //if (y < maxY)
                     spr.pushImage(x, y--, wLimit, 1, (uint16_t*)lineBuffer, 16);                
                 //spr.pushImage(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)gImage_true_color);
@@ -105,7 +107,7 @@ void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit, uin
             //lcd_PushColors(x, y, w, h, (uint16_t *)spr.getPointer());
             lcd_PushColors(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)spr.getPointer());
             spr.setSwapBytes(oldSwapBytes);
-            Serial.print("Loaded in ");
+            Serial.printf(">>> <%s> Loaded in ", filename);
             Serial.print(millis() - startTime);
             Serial.println(" ms");
         }

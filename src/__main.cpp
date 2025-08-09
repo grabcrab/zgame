@@ -16,12 +16,15 @@ void setup()
 {    
     if (!initOnBoot())
     {
-
+        while(1)
+        {
+            checkSleep(false);
+            delay(1);
+        }
     }
-
-    //valTest();
-
-    testGameHuman();
+    gameWait();
+    //valTest();    
+    //testGameHuman();
     //testGameZombie();
     //testGameBase();
     

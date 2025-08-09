@@ -20,6 +20,7 @@ bool netConnect(uint16_t toMs)
     if (!WiFiAutoConnect::begin(toMs))
     {
         Serial.println("WiFi start failed");
+        return false;
     }
     else
     {
@@ -27,7 +28,8 @@ bool netConnect(uint16_t toMs)
                       WiFiAutoConnect::currentSSID().c_str());        
     }
     wifiMaxPower();
-    return netWait(toMs);
+    netWait(toMs);
+    return true;
 }
 void radioConnect(void)
 {

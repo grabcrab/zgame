@@ -25,3 +25,13 @@ void audioLoop(void)
 {
     audio.loop();    
 }
+
+void audioStop(void)
+{
+    audio.stopSong();    
+}
+
+bool audioIsRunning(void)
+{
+    return audio.isRunning();
+}
