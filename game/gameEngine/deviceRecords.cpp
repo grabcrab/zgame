@@ -2,16 +2,17 @@
 
 #include <ArduinoJson.h>
 #include "utils.h"
-
-
+#include "PSRamFS.h"
+#include "tft_utils.h"
+#include "xgConfig.h"
 
 static tDeviceDataRecord self;
 static tEspPacket selfTxPacket;
 static tDeviceDataRecord dRecords[MAX_REC_COUNT];
 
-static int farRSSI   = GAME_START_FAR_RSSI;
-static int middlRSSI = GAME_START_MIDDL_RSSI;
-static int closeRSSI = GAME_START_CLOSE_RSSI;
+// static int farRSSI   = GAME_START_FAR_RSSI;
+// static int middlRSSI = GAME_START_MIDDL_RSSI;
+// static int closeRSSI = GAME_START_CLOSE_RSSI;
 static int gameLoopIntMs = GAME_START_LOOP_INT_MS;
 
 //int i = sizeof(dRecords);
@@ -36,14 +37,16 @@ bool tDeviceDataRecord::setJson(String jsonStr, bool self)
         return false;
     }
     
-    if (self)
-    {
-        deviceID = utilsGetDeviceID64();
-    }
-    else 
-    {
-        deviceID = doc["deviceID"].as<uint64_t>();
-    }
+    // if (self)
+    // {
+    //     deviceID = utilsGetDeviceID64();
+    // }
+    // else 
+    // {
+    //     deviceID = doc["deviceID"].as<uint64_t>();
+    // }
+
+    deviceID = ConfigAPI::getDeviceID();
 
     const char *roleStr = doc["deviceRole"] | "grNone";
     deviceRole = str2role(roleStr);
@@ -52,6 +55,70 @@ bool tDeviceDataRecord::setJson(String jsonStr, bool self)
     hitPointsMiddle = doc["hitPointsMiddle"] | 0;
     hitPointsFar = doc["hitPointsFar"] | 0;
     health = doc["health"] | 0;
+    maxHealth = doc["maxHealth"] | 0;
+    return true;
+}
+
+bool tDeviceDataRecord::setJsonFromFile(String filename, bool self)
+{
+   
+    // // Check if file exists
+    // if (!PSRamFS.exists(filename)) {
+    //     Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. File does not exist: ");
+    //     Serial.println(filename);
+    //     return false;
+    // }
+    
+    // Open file for reading
+    File file = PSRamFS.open(filename, "r");
+    if (!file) {
+        Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. Failed to open file: ");
+        Serial.println(filename);
+        return false;
+    }
+    
+    // Read file content
+    String jsonStr = file.readString();
+    file.close();
+    
+    // Check if file was empty
+    if (jsonStr.length() == 0) {
+        Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. File is empty: ");
+        Serial.println(filename);
+        return false;
+    }
+    
+    // Parse JSON
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, jsonStr);
+    if (error) {
+        Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return false;
+    }
+    
+    // Set device data from JSON
+    // if (self) {
+    //     deviceID = utilsGetDeviceID64();
+    // }
+    // else {
+    //     deviceID = doc["deviceID"].as<uint64_t>();
+    // }
+    deviceID = ConfigAPI::getDeviceID();
+
+    const char *roleStr = doc["deviceRole"] | "grNone";
+    deviceRole = str2role(roleStr);
+
+    hitPointsNear = doc["hitPointsNear"] | 0;
+    hitPointsMiddle = doc["hitPointsMiddle"] | 0;
+    hitPointsFar = doc["hitPointsFar"] | 0;
+    health = doc["health"] | 0;
+    maxHealth = doc["maxHealth"] | 0;
+
+    rssiFar    = doc["rssiFar"]    | 0;
+    rssiMiddle = doc["rssiMiddle"] | 0;
+    rssiClose  = doc["rssiClose"]  | 0;
+    
     return true;
 }
 
@@ -161,27 +228,112 @@ bool setSelfJson(String jsonS, bool print)
     return res;
 }
 
+bool setSelfJsonFromFile(String fName)
+{
+    bool res = self.setJsonFromFile(fName, true);
+    if (res)
+    {
+        Serial.println(">>> setSelfJsonFromFile OK");
+        self.print();
+        self2tx();
+    }
+    else 
+    {
+        Serial.println("!!! setSelfJsonFromFile ERROR!");
+    }
+    return res;
+}
+
 tEspPacket *getSelfTxPacket(void)
 {
     return &selfTxPacket;
 }
 
-static int rssi2points(tDeviceDataRecord *rec)
+tDeviceDataRecord *getSelfDataRecord(void)
 {
-    if (rec->rssi < farRSSI)
+    return &self;
+}
+
+static int rssi2points(tDeviceDataRecord *rec, String &rangeName)
+{    
+    if (rec->rssi < self.rssiFar)
     {
-        return rec->hitPointsFar;
+        rangeName = " (OUT:0)";
+        return 0;
     }
-    if (rec->rssi < middlRSSI)
+
+    if (rec->rssi > self.rssiClose)
     {
-        return rec->hitPointsMiddle;
+        rangeName = " (CLOSE:" + String(rec->hitPointsNear) + ")";
+        return rec->hitPointsNear; 
     }
-    return rec->hitPointsNear;
+
+    if (rec->rssi > self.rssiMiddle)
+    {
+        rangeName = " (MIDDLE:" + String(rec->hitPointsMiddle) + ")";
+        return rec->hitPointsMiddle; 
+    }
+    
+    rangeName = " (FAR:" + String(rec->hitPointsFar) + ")";    
+    return rec->hitPointsFar;
+}
+
+static bool loopRssiMonitor(void)
+{
+    String deviceS, roleS, rssiS, rangeS;
+    int maxRssi = -1000;
+    int maxPos  = -1;
+    if (self.deviceRole != grRssiMonitor)
+    {
+        return false;
+    }
+    for (int i = 0; i < MAX_REC_COUNT; i++)
+    {  
+        
+        if (!dRecords[i].deviceID)
+        {
+            continue;
+        }     
+
+        if (millis() - dRecords[i].lastReceivedMs > gameLoopIntMs)
+        {
+            continue;
+        }     
+
+        if (dRecords[i].rssi > maxRssi)
+        {
+            maxRssi = dRecords[i].rssi;
+            maxPos  = i;
+        }
+    }
+
+    if (maxPos >= 0)
+    {
+        deviceS = dRecords[maxPos].deviceID;
+        roleS   = role2str(dRecords[maxPos].deviceRole);
+        rssi2points(&dRecords[maxPos], rangeS);
+        rssiS   = String(dRecords[maxPos].rssi) + rangeS; 
+    }
+    else 
+    {
+        deviceS = "No devices";
+        roleS   = "";        
+        rssiS = "";
+    }
+    Serial.printf("[RSSI MONITOR] [%s] [%s] [%s]\r\n", deviceS.c_str(), roleS.c_str(), rssiS.c_str());
+    tftPrintThreeLines(deviceS, roleS, rssiS, TFT_BLACK, TFT_GREEN);
+    return true;
 }
 
 bool loopScanRecords(tGameRole &deviceRole, int &zCount, int &hCount, int &bCount, int &healPoints, int &hitPoints, int &healthPoints, bool &base)
 {
     static uint32_t lastLoopedMs = 0;
+    String tmpS;
+
+    if (loopRssiMonitor())
+    {
+        return true;
+    }
 
     if (millis() - lastLoopedMs < gameLoopIntMs)
     {
@@ -234,14 +386,14 @@ bool loopScanRecords(tGameRole &deviceRole, int &zCount, int &hCount, int &bCoun
         {
             if (self.deviceRole != dRecords[i].deviceRole)
             {
-                int hp = rssi2points(&dRecords[i]);
+                int hp = rssi2points(&dRecords[i], tmpS);
                 hitPoints += hp;
             }            
         }
 
         if (dRecords[i].isBase())
         {
-            int hp = rssi2points(&dRecords[i]);
+            int hp = rssi2points(&dRecords[i], tmpS);
             healPoints += hp;
         }
     }  

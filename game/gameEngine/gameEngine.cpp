@@ -3,6 +3,7 @@
 #include "valPlayer.h"
 #include "patterns.h"
 #include "tft_utils.h"
+#include "espRadio.h"
 
 static uint32_t gameStartedMs = 0;
 static uint32_t gameCompletedMs = 0;
@@ -72,14 +73,25 @@ void zombiePreGame(uint16_t preTimeoutMs)
         tftPrintTextBig(String(secLeft), TFT_BLACK, TFT_GREEN, true);
         lastDrawMs = millis();
     }
+    valPlayPattern(GAME_ZOMBIE_NEUTRAL);
 }
 
-void gameWait(void)
+void basePreGame(void)
+{    
+    //CHANGE!!!
+    int lastDrawMs = 0;
+    uint32_t startMs = millis();    
+    basePreWaitPicture();
+    valPlayPattern(BASE_ROLE_PATTERN);    
+}
+
+void rssiMonitorPreGame(void)
 {
-    uint16_t preTimeoutMs;
-    valPlayPattern(GAME_WAIT_PATTERN);
-    gameWaitLogo();
-    tGameRole role = waitGame(preTimeoutMs);
+    tftPrintText("RSSI MONITOR");
+}
+
+static void preGame(tGameRole role, uint16_t preTimeoutMs)
+{
     switch(role)
     {
         case grZombie:
@@ -88,10 +100,25 @@ void gameWait(void)
         case grHuman:
             humanPreGame(preTimeoutMs);
         return;        
+        case grBase:
+            basePreGame();
+        return;
+        case grRssiMonitor:
+            rssiMonitorPreGame();
+        return;
         default:
             gameOnCritical("ERR_ROLE");
         break;
     }
+}
+
+void gameWait(void)
+{
+    uint16_t preTimeoutMs;
+    valPlayPattern(GAME_WAIT_PATTERN);
+    gameWaitLogo();
+    tGameRole role = waitGame(preTimeoutMs);
+    preGame(role, preTimeoutMs);
 
 }
 
@@ -105,6 +132,49 @@ void gamePrintStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int
                             gameStep, role2str(deviceRole), healthPoints, zCount, hCount, bCount, healPoints, hitPoints);
 }
 
+void gameVisualizeStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int healPoints, int hitPoints, int healthPoints, bool isBase)
+{
+    if (deviceRole == grZombie)    
+    {
+        int lifePoint = healPoints + hitPoints;
+        tftPrintText(String(healthPoints));
+        if (lifePoint == 0)
+        {
+            valPlayPattern(GAME_ZOMBIE_NEUTRAL);           
+        }
+        
+        if (lifePoint > 0)
+        {
+            valPlayPattern(GAME_ZOMBIE_HEALING);           
+        }
+
+        if (lifePoint < 0)
+        {
+            valPlayPattern(GAME_ZOMBIE_KILLING);           
+        }
+    }
+    
+    if (deviceRole == grHuman)    
+    {
+        int lifePoint = healPoints + hitPoints;
+        tftPrintText(String(healthPoints), TFT_BLACK, TFT_RED);
+        if (lifePoint == 0)
+        {
+            valPlayPattern(GAME_HUMAN_NEUTRAL);           
+        }
+        
+        if (lifePoint > 0)
+        {
+            valPlayPattern(GAME_HUMAN_HEALING);           
+        }
+
+        if (lifePoint < 0)
+        {
+            valPlayPattern(GAME_HUMAN_KILLING);           
+        }
+    }
+}
+
 void doGameStep(void)
 {
     int zCount, hCount, bCount, healPoints, hitPoints, healthPoints;
@@ -116,6 +186,46 @@ void doGameStep(void)
         return;
     }
     gameStep++;
+    if (healthPoints > getSelfDataRecord()->maxHealth)
+    {
+        healthPoints = getSelfDataRecord()->maxHealth;
+    }
     gamePrintStep(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase);
+    gameVisualizeStep(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase);
 }
+
+bool startFixedGame(String captS, String jsonS)
+{    
+    const uint16_t fixedGameToMs = 10000;
+    Serial.print(">>> ");
+    Serial.println(captS);
+
+    if (setSelfJson(jsonS, true))
+    {
+        preGame(getSelfDataRecord()->deviceRole, fixedGameToMs);
+        espInitRxTx(getSelfTxPacket(), true);
+        startCommunicator();
+        return true;
+    }
+    return false;
+}
+
+bool startGameFromFile(String captS, String fileName)
+{    
+    const uint16_t fixedGameToMs = 10000;
+    Serial.print(">>> ");
+    Serial.println(captS);
+
+    if (setSelfJsonFromFile(fileName))
+    {
+        preGame(getSelfDataRecord()->deviceRole, fixedGameToMs);
+        espInitRxTx(getSelfTxPacket(), true);
+        startCommunicator();
+        return true;
+    }
+    return false;
+}
+
+
+
 

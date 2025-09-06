@@ -63,5 +63,6 @@ void bazaLogo(void);
 void gameWaitLogo(void);
 void zombiPreWaitPicture(void);
 void humanPreWaitPicture(void);
+void basePreWaitPicture(void);
 
 #endif //__TFT_UTILS_H__

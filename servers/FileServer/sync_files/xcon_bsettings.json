@@ -1,0 +1,11 @@
+{
+    "deviceRole": "grBase",        
+    "hitPointsNear": 10,
+    "hitPointsMiddle": 5,
+    "hitPointsFar": 1,
+    "rssiFar": -85,
+    "rssiMiddle":-70,
+    "rssiClose":-50,
+    "health": 10000,
+    "maxHealth":20000   
+}

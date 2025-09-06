@@ -2,6 +2,7 @@
 #include "deviceRecords.h"
 #include "espRadio.h"
 #include "gameEngine.h"
+#include "tft_utils.h"
 
 const String zomJsonStr = R"({
     "deviceRole": "grZombie",        
@@ -27,31 +28,32 @@ const String baseJsonStr = R"({
     "health": 10000    
 })";
 
+const String rssiJsonStr = R"({
+    "deviceRole": "grRssiMonitor",        
+    "hitPointsNear": 10,
+    "hitPointsMiddle": 5,
+    "hitPointsFar": 1,
+    "health": 10000    
+})";
 
-static bool startTestGame(String captS, String jsonS)
-{    
-    Serial.print(">>> ");
-    Serial.println(captS);
-    if (setSelfJson(jsonS, true))
-    {
-        espInitRxTx(getSelfTxPacket(), true);
-        startCommunicator();
-        return true;
-    }
-    return false;
-}
 
 bool testGameHuman(void)
 {    
-    return startTestGame("", humJsonStr);
+    return startFixedGame("TEST_HUMAN", humJsonStr);
 }
 
 bool testGameZombie(void)
 {
-    return startTestGame("", zomJsonStr);
+    return startFixedGame("TEST_ZOMBIE", zomJsonStr);
 }
 
 bool testGameBase(void)
 {
-    return startTestGame("", baseJsonStr);
+    return startFixedGame("TEST_BASE", baseJsonStr);
+}
+
+bool testRssiMonitor(void)
+{
+    tftPrintText("RSSI MONITOR");
+    return startFixedGame("TEST_RSSI", rssiJsonStr);
 }

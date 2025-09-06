@@ -18,17 +18,24 @@ struct tDeviceDataRecord
     bool     processed = false;    
     int      hitPointsNear; 
     int      hitPointsMiddle;
-    int      hitPointsFar;     
-    int      health;     
+    int      hitPointsFar;
+    int      rssiFar;
+    int      rssiMiddle;
+    int      rssiClose;
+    int      health;   
+    int      maxHealth;     
     int  rssi = 0;         
     void print(void);   
     bool setJson(String jsonStr, bool self = true);
+    bool setJsonFromFile(String filename, bool self);
     inline bool isZomboHum(void) {if (deviceRole == grZombie || deviceRole == grHuman) return true; return false;}
     inline bool isBase(void) {if (deviceRole == grBase) return true; return false;}
 };
 
 bool checkIfApPortal(int rssiLevel);
 void printScannedRecords(tGameRole filterRole = grNone);
-bool setSelfJson(String jsonS, bool print);
+bool setSelfJson(String fName, bool print);
+bool setSelfJsonFromFile(String jsonS);
 tEspPacket *getSelfTxPacket(void);
+tDeviceDataRecord *getSelfDataRecord(void);
 bool loopScanRecords(tGameRole &deviceRole, int &zCount, int &hCount, int &bCount, int &healPoints, int &hitPoints, int &healthPoints, bool &base);

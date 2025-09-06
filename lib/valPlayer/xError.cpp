@@ -11,6 +11,7 @@ void valPrintError(uint8_t errB)
         case ERR_VAL_LOAD:   errS = "ERR_VAL_LOAD"; break;
         case ERR_VAL_JSON:   errS = "ERR_VAL_JSON"; break;
         case ERR_VAL_INIT:   errS = "ERR_VAL_INIT"; break;
+        case ERR_VAL_ROLE:   errS = "ERR_VAL_ROLE"; break;
     }
     tftPrintText(errS);
 }

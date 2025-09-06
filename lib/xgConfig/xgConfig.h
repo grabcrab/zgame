@@ -9,6 +9,7 @@
 
 #ifdef USE_PSRAM_FOR_CONFIG
 #define MAX_DEVICE_NAME_LEN 64
+#define MAX_DEVICE_ROLE_LEN 32
 #define MAX_SERVER_URL_LEN 128
 #define MAX_SSID_LEN 32
 #define MAX_PASS_LEN 64
@@ -57,7 +58,9 @@ class ConfigManager
 private:
 #ifdef USE_PSRAM_FOR_CONFIG
     char deviceName[MAX_DEVICE_NAME_LEN];
+    char deviceRole[MAX_DEVICE_ROLE_LEN];
     bool isBaseStation;
+    uint16_t deviceID;
     WifiNetwork wifiNetworks[MAX_WIFI_NETWORKS];
     size_t wifiNetworkCount;
     char fileServerUrl[MAX_SERVER_URL_LEN];
@@ -89,6 +92,8 @@ public:
     
 #ifdef USE_PSRAM_FOR_CONFIG
     String getDeviceName() const { return String(deviceName); }
+    String getDeviceRole() const { return String(deviceRole); }
+    uint16_t getDeviceID() const { return deviceID; }
     String getFileServerUrl() const { return String(fileServerUrl); }
     String getGameServerUrl() const { return String(gameServerUrl); }
     String getOTAServerUrl() const { return String(otaServerUrl); }
@@ -139,6 +144,8 @@ namespace ConfigAPI
     bool isInitialized();
 
     String getDeviceName();
+    String getDeviceRole();
+    uint16_t getDeviceID();
     bool getIsBaseStation();
     String getFileServerUrl();
     String getGameServerUrl();

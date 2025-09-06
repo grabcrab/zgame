@@ -41,8 +41,11 @@ struct tGameRecord
 bool testGameHuman(void);
 bool testGameZombie(void);
 bool testGameBase(void);
+bool testRssiMonitor(void);
 
 void gameOnCritical(String errS);
 void gameWait(void);
 void startCommunicator(void);
 void doGameStep(void);
+bool startFixedGame(String captS, String jsonS);
+bool startGameFromFile(String captS, String fileName);

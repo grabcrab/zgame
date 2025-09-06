@@ -59,14 +59,17 @@ void ConfigManager::deinitialize()
 void ConfigManager::setDefaults()
 {
 #ifdef USE_PSRAM_FOR_CONFIG
-    strncpy(deviceName, "BAZA_GAME", MAX_DEVICE_NAME_LEN - 1);
+    strncpy(deviceName, "BAZA_GAME", MAX_DEVICE_NAME_LEN - 1);    
     deviceName[MAX_DEVICE_NAME_LEN - 1] = '\0';
+    strncpy(deviceRole, "roleError", MAX_DEVICE_ROLE_LEN - 1);
+    deviceRole[MAX_DEVICE_ROLE_LEN - 1] = '\0';
     isBaseStation = false;
     wifiNetworkCount = 0;
-    memset(fileServerUrl, 0, MAX_SERVER_URL_LEN);
+    memset(fileServerUrl, 0, MAX_SERVER_URL_LEN); 
     memset(gameServerUrl, 0, MAX_SERVER_URL_LEN);
     memset(otaServerUrl, 0, MAX_SERVER_URL_LEN);
     memset(wifiNetworks, 0, sizeof(wifiNetworks));
+    deviceID = 0;
 #else
     deviceName = "BAZA_GAME";
     isBaseStation = false;
@@ -152,7 +155,13 @@ bool ConfigManager::loadFromFile()
     strncpy(deviceName, devName, MAX_DEVICE_NAME_LEN - 1);
     deviceName[MAX_DEVICE_NAME_LEN - 1] = '\0';
 
-    isBaseStation = doc["base_station"] | false;
+    const char *devRole = doc["deviceRole"] | "roleError";
+    strncpy(deviceRole, devRole, MAX_DEVICE_ROLE_LEN - 1);
+    deviceRole[MAX_DEVICE_ROLE_LEN - 1] = '\0';
+
+    deviceID = doc["deviceID"] | 1111;
+    
+    //isBaseStation = doc["base_station"] | false;
     
     wifiNetworkCount = 0;
     if (doc.containsKey("wifi_networks"))
@@ -286,7 +295,8 @@ bool ConfigManager::saveConfig() const
 
 #ifdef USE_PSRAM_FOR_CONFIG
     doc["device_name"] = deviceName;
-    doc["base_station"] = isBaseStation;
+    doc["deviceRole"]  = deviceRole;   
+    doc["deviceID"]    = deviceID;
 
     JsonArray networks = doc["wifi_networks"].to<JsonArray>();
     for (size_t i = 0; i < wifiNetworkCount; i++)
@@ -343,7 +353,8 @@ void ConfigManager::printConfig() const
     Serial.println("=== Configuration ===");
 #ifdef USE_PSRAM_FOR_CONFIG
     Serial.printf("Device Name: %s\n", deviceName);
-    Serial.printf("Base Station: %s\n", isBaseStation ? "Yes" : "No");
+    Serial.printf("Device Role: %s\n", deviceRole);
+    //Serial.printf("Base Station: %s\n", isBaseStation ? "Yes" : "No");
 
     Serial.printf("WiFi Networks (%d):\n", wifiNetworkCount);
     for (size_t i = 0; i < wifiNetworkCount; i++)
@@ -511,6 +522,26 @@ namespace ConfigAPI
             return String("BAZA_GAME");
         }
         return g_configInstance->getDeviceName();
+    }
+
+    String getDeviceRole()
+    {
+        if (!isInitialized())
+        {
+            Serial.println("ConfigAPI: Not initialized");
+            return String("gamePlayer");
+        }
+        return g_configInstance->getDeviceRole();
+    }
+
+    uint16_t getDeviceID()
+    {
+        if (!isInitialized())
+        {
+            Serial.println("ConfigAPI: Not initialized");
+            return 2222;
+        }
+        return g_configInstance->getDeviceID();
     }
 
     bool getIsBaseStation()

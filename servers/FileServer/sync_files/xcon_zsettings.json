@@ -1,0 +1,11 @@
+{
+    "deviceRole": "grZombie",        
+    "hitPointsNear": -100,
+    "hitPointsMiddle": -50,
+    "hitPointsFar": -10,
+    "rssiFar": -85,
+    "rssiMiddle":-70,
+    "rssiClose":-50,
+    "health": 10000,    
+    "maxHealth":20000     
+}

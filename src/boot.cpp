@@ -84,7 +84,7 @@ static bool accelInitOnBoot(void)
 static void configBoot(void)
 {
     tftPrintText("CONFIG");
-    delay(500);
+    delay(100);
     if (!configInit())
     {
         tftPrintText("!CONFIG ERROR!");
@@ -118,7 +118,7 @@ static void netBoot(void)
 {    
     int a = 0;
     tftPrintText("NETWORK");
-    delay(500);
+    delay(100);
 
     if (netConnect(DEF_NET_WAIT_MS))
     {        
@@ -145,7 +145,7 @@ static void otaBoot(void)
 {
     int a = 0;    
     tftPrintText("OTA");
-    delay(500);    
+    delay(100);    
     while (!syncOTA(ConfigAPI::getOTAServerUrl().c_str()))
     {        
         if (DEF_CAN_SKIP_OTA)
@@ -164,19 +164,39 @@ static void otaBoot(void)
     checkSleep(true);
 }
 
+static bool checkFsInit(void)
+{
+    File f = PSRamFS.open(VAL_FILE_NAME, "r");
+    if (!f)
+    {        
+        return false;
+    }
+    f.close();
+    return true;
+}
+
 static void fileSyncBoot(void)
 {
     int a = 0;    
     tftPrintText("FILE SYNC");
-    delay(500);
-    while (!syncFiles(ConfigAPI::getFileServerUrl().c_str()))
+    delay(100);
+
+    if (!checkFsInit())
     {
-        a++;
-        Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
-        tftPrintText("FILE SYNC " + String(a));
-        checkSleep();
+        while (!syncFiles(ConfigAPI::getFileServerUrl().c_str()))
+        {
+            a++;
+            Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
+            tftPrintText("FILE SYNC " + String(a));
+            checkSleep();
+        }
+        checkSleep(true);    
     }
-    checkSleep(true);    
+    else 
+    {
+        tftPrintText("FILE SYNC READY");
+        delay(500);
+    }
 }
 
 static void valPlayerBoot(void)
@@ -200,7 +220,7 @@ static void radioBoot(void)
     checkSleep(true);
     tftPrintText("RADIO");
     radioConnect();
-    delay(500);
+    delay(100);
 }
 
 bool initOnBoot(void)

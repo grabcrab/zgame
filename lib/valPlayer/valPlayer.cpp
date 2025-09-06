@@ -192,6 +192,7 @@ bool tValPlayer::loadFromJsonFile(void)
     {
         Serial.printf("JSON deserialize ERROR [%s]\r\n", error.c_str());
         valPlayError(ERR_VAL_JSON);
+        f.close();
         return false;
     }
 
@@ -207,7 +208,7 @@ bool tValPlayer::loadFromJsonFile(void)
             break;
         }
     }   
-
+    f.close();
     return true;
 }
 

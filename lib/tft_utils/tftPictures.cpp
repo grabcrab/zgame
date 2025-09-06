@@ -20,3 +20,8 @@ void humanPreWaitPicture(void)
 {
     tftDrawBmp("/xhum.bmp", 0, 0, 536, 240);    
 }
+
+void basePreWaitPicture(void)
+{
+    tftDrawBmp("/xbase.bmp", 0, 0, 536, 240);    
+}

@@ -11,8 +11,9 @@ enum tGameRole
     grHuman = 2,
     grBase = 3,
     grServer = 4,
-    grPinger = 5,
-    grApPortalBeacon = 55
+    grPinger = 5,    
+    grApPortalBeacon = 55,
+    grRssiMonitor = 100
 };
 
 inline const char *role2str(tGameRole r)
@@ -24,7 +25,8 @@ inline const char *role2str(tGameRole r)
         case grHuman:   return "grHuman";
         case grBase:    return "grBase";
         case grServer:  return "grServer";
-        case grPinger:  return "grPinger";        
+        case grPinger:  return "grPinger";    
+        case grRssiMonitor: return "grRssiMonitor";
         case grApPortalBeacon: return ""; 
     }
     return "na";
@@ -55,7 +57,11 @@ inline tGameRole str2role(const char *roleStr)
     else if (strcmp(roleStr, "grApPortalBeacon") == 0)
     {
         return grApPortalBeacon;
-    }    
+    } else if (strcmp(roleStr, "grRssiMonitor") == 0)
+    {
+        return grRssiMonitor;
+    }        
+
     Serial.println("!!! str2role ERROR: bad role string!!!");
     return grNone;
 }
