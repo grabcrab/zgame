@@ -1,0 +1,2 @@
+python spiffs_commander.py
+pause
