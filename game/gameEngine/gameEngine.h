@@ -3,6 +3,14 @@
 #include "gameComm.h"
 #include "deviceRecords.h"
 
+
+#define GAME_BASE_FNAME "/xcon_bsettings.json"
+#define GAME_ZOMB_FNAME "/xcon_zsettings.json"
+#define GAME_HUMB_FNANE "/xcon_hsettings.json"
+#define GAME_RSSI_FNAME "/xcon_rsettings.json"
+#define GAME_FIXED_PRE_MS       10000
+#define GAME_SWAPROLE_PRE_MS    10000
+
 #define GAME_START_LIFE_POINT 10000
 #define GAME_MAX_TIME_MS      10 * 60 * 1000;  
 
@@ -46,6 +54,11 @@ bool testRssiMonitor(void);
 void gameOnCritical(String errS);
 void gameWait(void);
 void startCommunicator(void);
-void doGameStep(void);
+bool doGameStep(void);
 bool startFixedGame(String captS, String jsonS);
-bool startGameFromFile(String captS, String fileName);
+bool startGameFromFile(String captS, String fileName, uint16_t gameToMs);
+
+bool startZombieGame(uint16_t gameToMs);
+bool startHumanGame(uint16_t gameToMs);
+bool startBaseGame(void);
+bool startRssiReader(void);

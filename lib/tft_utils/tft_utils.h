@@ -56,6 +56,7 @@ void tftPrintThreeLines(String txt1, String txt2, String txt3, uint16_t bgColor,
 
 void tftDrawBmp(const char *filename, int16_t x, int16_t y, uint16_t wLimit = 0, uint16_t hLimit = 0);
 void tftTestBmp(void);
+void tftDrawBmpToSprite(const char *filename, int16_t x, int16_t y, uint16_t wLimit, uint16_t hLimit, TFT_eSprite &spr);
 
 
 //Picture functions
@@ -64,5 +65,11 @@ void gameWaitLogo(void);
 void zombiPreWaitPicture(void);
 void humanPreWaitPicture(void);
 void basePreWaitPicture(void);
+void gameOverPicture(void);
+
+void tftGameScreenBase(int32_t topVal, int32_t botVal, uint32_t secLeft);
+void tftGameScreenHuman(int32_t topVal, int32_t botVal, uint32_t secLeft);
+void tftGameScreenZombie(int32_t topVal, int32_t botVal, uint32_t secLeft);
+void tftGameScreenTest(void);
 
 #endif //__TFT_UTILS_H__

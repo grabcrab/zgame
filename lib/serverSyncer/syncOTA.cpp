@@ -6,7 +6,7 @@
 #include <MD5Builder.h>
 #include <esp_partition.h>
 #include <esp_ota_ops.h>
-
+#include "tft_utils.h"
 
 
 // WiFi settings
@@ -178,18 +178,23 @@ bool performOTAUpdate(const char *otaServerURL, int firmwareSize)
         if (Update.isFinished())
         {
             Serial.println(">>> performOTAUpdate: Update successfully finished. Rebooting...");
-            delay(1000);
+            tftPrintText("OTA DONE");
+            delay(2000);
             ESP.restart();
         }
         else
         {
             Serial.println("!!! performOTAUpdate ERROR: Update failed to finish");
+            tftPrintText("OTA ERROR[1]");
+            delay(5000);
             res = false;
         }
     }
     else
     {
         Serial.printf("!!! performOTAUpdate ERROR: %d\n", Update.getError());
+        tftPrintText("OTA ERROR[2]");
+        delay(5000);
         res = false;
     }
 

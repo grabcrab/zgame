@@ -68,44 +68,33 @@ bool processSerialRole(String gameRole)
 
 bool processFixedRole(String deviceRole)
 {
-    String fileName = "";
+
     if (deviceRole == "fixBase")
-    {
-        fileName = "/xcon_bsettings.json";
+    {        
+        return startBaseGame();
     }
+
     if (deviceRole == "fixZombie")
     {
-        fileName = "/xcon_zsettings.json";
+        return startZombieGame(GAME_FIXED_PRE_MS);
     }
     if (deviceRole == "fixHuman")
     {
-        fileName = "/xcon_hsettings.json";
+        return startHumanGame(GAME_FIXED_PRE_MS);
     }
 
     if (deviceRole == "fixRSSI")
     {
-        fileName = "/xcon_rsettings.json";
+        return startRssiReader();
     }
-
-    if (fileName == "")
+   
+    tftPrintText("ROLE CONF. ERROR");
+    while(true)
     {
-        return false;
+        Serial.println("!!! Role config file error!!!\r\n");
+        delay(10900);
     }
-
-    if (startGameFromFile("FIXED_FROM_FILE", fileName))
-    {
-        return true;
-    }
-    else
-    {
-        tftPrintText("ROLE CONF. ERROR");
-        while(true)
-        {
-            Serial.printf("!!! Role config file error: [%s] !!!\r\n", fileName.c_str());
-            delay(10900);
-        }
-    }
-    return false;
+    
 }
 
 // bool processRssiMonitor(String deviceRole)
@@ -168,6 +157,7 @@ void setup()
             delay(1);
         }
     }    
+    //tftGameScreenTest();
     processGameRole();    
     //testGameBase();
     //valTest();    

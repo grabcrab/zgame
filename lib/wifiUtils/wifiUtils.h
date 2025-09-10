@@ -29,6 +29,7 @@ void getWiFiCredentials(String &ssid, String &pass, bool &localNet);
 void setWiFiCredentials(String ssid, String pass, bool localNet);
 void setWiFiToLocal(bool localNet);
 void wifiMaxPower(void);
+bool wifiGetDisco(IPAddress &server);
 
 
 #endif

@@ -66,6 +66,7 @@ private:
     char fileServerUrl[MAX_SERVER_URL_LEN];
     char gameServerUrl[MAX_SERVER_URL_LEN];
     char otaServerUrl[MAX_SERVER_URL_LEN];
+    char sysServerUrl[MAX_SERVER_URL_LEN];
 #else
     String deviceName;
     bool isBaseStation;
@@ -91,13 +92,14 @@ public:
     void deinitialize();
     
 #ifdef USE_PSRAM_FOR_CONFIG
-    String getDeviceName() const { return String(deviceName); }
-    String getDeviceRole() const { return String(deviceRole); }
-    uint16_t getDeviceID() const { return deviceID; }
-    String getFileServerUrl() const { return String(fileServerUrl); }
-    String getGameServerUrl() const { return String(gameServerUrl); }
-    String getOTAServerUrl() const { return String(otaServerUrl); }
-    size_t getWifiNetworkCount() const { return wifiNetworkCount; }
+    String getDeviceName() const { return String(deviceName);}
+    String getDeviceRole() const { return String(deviceRole);}
+    uint16_t getDeviceID() const { return deviceID;}
+    String getFileServerUrl() const { return String(fileServerUrl);}
+    String getGameServerUrl() const { return String(gameServerUrl);}
+    String getOTAServerUrl() const { return String(otaServerUrl);}
+    String getSysServerUrl() const { return String(sysServerUrl);}
+    size_t getWifiNetworkCount() const { return wifiNetworkCount;}
     bool getWifiNetwork(size_t index, String &ssid, String &password) const
     {
         if (index >= wifiNetworkCount)
@@ -143,6 +145,8 @@ namespace ConfigAPI
     void deinitialize();
     bool isInitialized();
 
+    void setDiscoServer(String dS);
+
     String getDeviceName();
     String getDeviceRole();
     uint16_t getDeviceID();
@@ -150,6 +154,7 @@ namespace ConfigAPI
     String getFileServerUrl();
     String getGameServerUrl();
     String getOTAServerUrl();
+    String getSysServerUrl();
 
     size_t getWifiNetworkCount();
     bool getWifiNetwork(size_t index, String &ssid, String &password);

@@ -8,7 +8,7 @@
 #define GAME_START_FAR_RSSI     -80
 #define GAME_START_MIDDL_RSSI   -65
 #define GAME_START_CLOSE_RSSI   -50
-#define GAME_START_LOOP_INT_MS  2000
+#define GAME_START_LOOP_INT_MS  1000
 
 struct tDeviceDataRecord
 {
@@ -22,6 +22,7 @@ struct tDeviceDataRecord
     int      rssiFar;
     int      rssiMiddle;
     int      rssiClose;
+    int      beginHealth = 15000;
     int      health;   
     int      maxHealth;     
     int  rssi = 0;         
@@ -39,3 +40,4 @@ bool setSelfJsonFromFile(String jsonS);
 tEspPacket *getSelfTxPacket(void);
 tDeviceDataRecord *getSelfDataRecord(void);
 bool loopScanRecords(tGameRole &deviceRole, int &zCount, int &hCount, int &bCount, int &healPoints, int &hitPoints, int &healthPoints, bool &base);
+tGameRole revertGameRole(void);

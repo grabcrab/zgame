@@ -55,6 +55,7 @@ bool tDeviceDataRecord::setJson(String jsonStr, bool self)
     hitPointsMiddle = doc["hitPointsMiddle"] | 0;
     hitPointsFar = doc["hitPointsFar"] | 0;
     health = doc["health"] | 0;
+    beginHealth = health;
     maxHealth = doc["maxHealth"] | 0;
     return true;
 }
@@ -114,6 +115,7 @@ bool tDeviceDataRecord::setJsonFromFile(String filename, bool self)
     hitPointsFar = doc["hitPointsFar"] | 0;
     health = doc["health"] | 0;
     maxHealth = doc["maxHealth"] | 0;
+    beginHealth = health;
 
     rssiFar    = doc["rssiFar"]    | 0;
     rssiMiddle = doc["rssiMiddle"] | 0;
@@ -401,4 +403,22 @@ bool loopScanRecords(tGameRole &deviceRole, int &zCount, int &hCount, int &bCoun
     self.health += hitPoints;
     healthPoints = self.health;
     return true;
+}
+
+tGameRole revertGameRole(void)
+{
+    if (self.deviceRole == grZombie)
+    {
+        self.deviceRole = grHuman;
+        Serial.println("--->>> Converted to HUMAN");
+        return self.deviceRole;
+    }
+
+    if (self.deviceRole == grHuman)
+    {
+        self.deviceRole = grZombie;
+        Serial.println("--->>> Converted to ZOMBIE");
+        return self.deviceRole;
+    }
+    return grNone;
 }

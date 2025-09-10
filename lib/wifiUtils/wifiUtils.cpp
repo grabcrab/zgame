@@ -130,8 +130,8 @@ void wifiInit(String ssid, String pass, uint8_t wifiChannel)
     wifiSsid = ssid;
     wifiPass = pass;
 
-    //WiFi.disconnect(true);
-    
+    // WiFi.disconnect(true);
+
     delay(100);
 
     WiFi.onEvent(wifiUnhandled_evt);
@@ -301,13 +301,45 @@ void setWiFiToLocal(bool localNet)
     Preferences prefs;
     prefs.begin("wifi");
     prefs.putBool("local", localNet);
-    prefs.end();    
+    prefs.end();
 }
 
 void wifiMaxPower(void)
 {
-    WiFi.setTxPower(WIFI_POWER_19_5dBm); 
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
     int8_t power;
     esp_wifi_get_max_tx_power(&power);
-    Serial.println(">>> wifiMaxPower: " + String(power/4.0) + " dBm");
+    Serial.println(">>> wifiMaxPower: " + String(power / 4.0) + " dBm");
+}
+
+bool wifiGetDisco(IPAddress &server)
+{
+    WiFiUDP udp;    
+    const uint16_t DISCO_PORT = 4210; // arbitrary free port
+    const char DISCO_MAGIC[] = "ESP32-LOOK";
+    udp.begin(DISCO_PORT);
+
+    IPAddress broadcast(255, 255, 255, 255);
+    udp.beginPacket(broadcast, DISCO_PORT);
+    udp.write((uint8_t *)DISCO_MAGIC, strlen(DISCO_MAGIC));
+    udp.endPacket();
+
+    uint32_t start = millis();
+    while (millis() - start < 300)
+    { 
+        int len = udp.parsePacket();
+        if (len >= 7)
+        { // expect “192.x.x.x”
+            char buf[16] = {0};
+            udp.read(buf, sizeof(buf) - 1);            
+            if (server.fromString(buf))
+            {
+                Serial.print(">>> wifiGetDisco: server found at ");
+                Serial.println(server);
+                return true;
+            }
+        }
+    }
+    Serial.println(">>> wifiGetDisco: NO SERVER FOUND");
+    return false;
 }

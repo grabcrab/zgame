@@ -10,6 +10,7 @@
 #include "version.h"
 #include "xgConfig.h"
 #include "patterns.h"
+#include "wifiUtils.h"
 
 static void boardInit(void)
 {
@@ -20,7 +21,7 @@ static void boardInit(void)
     {
        setupTFT("BOOT"); 
        tftPrintText("BAZA BOOT");
-       delay(500);              
+       delay(300);              
     }
     valPlayError(ERR_VAL_OK);
     //delay(1000);
@@ -136,6 +137,33 @@ static void netBoot(void)
         while(true)
         {
             checkSleep();
+        }
+    }
+    checkSleep(true);
+}
+
+static void discoBoot(void)
+{
+    IPAddress server;
+    int a = 0;
+    tftPrintText("DISCO");
+    delay(100);
+    while(true)
+    {
+        bool res = wifiGetDisco(server);
+        a++;
+        if (!res)
+        {
+            tftPrintText("DISCO " + String(a));
+            checkSleep();
+        }
+        else
+        {
+            String serverIpStr = server.toString(); 
+            Serial.print(">> DISCO COMPLETED: ");
+            Serial.println(serverIpStr);
+            ConfigAPI::setDiscoServer(serverIpStr);
+            break;
         }
     }
     checkSleep(true);
@@ -260,9 +288,10 @@ bool initOnBoot(void)
     accelBoot();    
     configBoot();
     netBoot();
+    discoBoot();
+    otaBoot();
     fileSyncBoot();        
     //valPlayPattern(WHILE_BOOT_PATTERN);    
-    otaBoot();
     radioBoot();
     valPlayerBoot();  
     valPlayPattern(ON_BOOT_PATTERN);
@@ -274,14 +303,6 @@ bool initOnBoot(void)
 
 void otaProgressCallback(int progress)
 {
-     Serial.printf("OTA Progress: %d%%\n", progress);
-
-    // Example: blink built-in LED
-    if (progress % 10 == 0)
-    {
-        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    }
-
-    // Example: send progress via Serial in JSON format
-    Serial.printf("{\"ota_progress\": %d}\n", progress);
+    Serial.printf("OTA Progress: %d%%\n", progress);
+    tftPrintText("OTA  " + String(progress) + "%");
 }

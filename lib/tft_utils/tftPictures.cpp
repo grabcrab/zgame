@@ -25,3 +25,8 @@ void basePreWaitPicture(void)
 {
     tftDrawBmp("/xbase.bmp", 0, 0, 536, 240);    
 }
+
+void gameOverPicture(void)
+{
+    tftDrawBmp("/xgameover.bmp", 0, 0, 536, 240);    
+}

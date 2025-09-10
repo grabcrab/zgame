@@ -19,8 +19,6 @@ void drawRainbow();
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
-
-
 unsigned long targetTime = 0;
 byte red = 31;
 byte green = 0;
@@ -54,21 +52,6 @@ void setupTFT(String textS = "BOOT")
     spr.createSprite(X_TFT_WIDTH, X_TFT_HEIGHT);
     spr.setSwapBytes(1);
     
-    // spr.pushImage(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)gImage_true_color);
-    // lcd_PushColors(0, 0, X_TFT_WIDTH, X_TFT_HEIGHT, (uint16_t *)spr.getPointer());
-    // delay(2000);
-
-    // spr.fillSprite(TFT_BLACK);
-    // spr.fillRect(0, 0, 67, 120, TFT_RED);
-    // spr.fillRect(67 * 1,  0, 67, 120, TFT_GREEN);
-    // spr.fillRect(67 * 2,  0, 67, 120, TFT_BLUE);
-    // spr.fillRect(67 * 3,  0, 67, 120, TFT_RED);
-    // spr.fillRect(67 * 4,  0, 67, 120, TFT_GREEN);
-    // spr.fillRect(67 * 5,  0, 67, 120, TFT_BLUE);
-    // spr.fillRect(67 * 6,  0, 67, 120, TFT_RED);
-    // spr.fillRect(67 * 7,  0, 67, 120, TFT_GREEN);
-    // delay(3990);
-
     spr.fillSprite(TFT_BLACK);
     spr.setTextColor(TFT_GREEN, TFT_BLACK);
     spr.setTextDatum(MC_DATUM);

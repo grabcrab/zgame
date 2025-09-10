@@ -4,24 +4,13 @@
 #include "patterns.h"
 #include "tft_utils.h"
 #include "espRadio.h"
-
 static uint32_t gameStartedMs = 0;
+
 static uint32_t gameCompletedMs = 0;
 static uint32_t gameStep = 0;
-// uint32_t tGameRecord::rssi2hp(int rssi)
-// {
-//     if (rssi > closeRssi)
-//         return closePs;
-
-//     if (rssi > middleRssi)
-//         return middlePs;
-
-//     if (rssi > farRssi)
-//         return farHitPs;
-    
-
-//     return 0;
-// }
+static uint32_t lastBaseStartedMs = 0;
+static uint32_t gameDurationS = 180;
+static bool inTheBase = 0;
 
 void gameOnCritical(String errS)
 {
@@ -132,12 +121,18 @@ void gamePrintStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int
                             gameStep, role2str(deviceRole), healthPoints, zCount, hCount, bCount, healPoints, hitPoints);
 }
 
-void gameVisualizeStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int healPoints, int hitPoints, int healthPoints, bool isBase)
+void gameVisualizeStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int healPoints, int hitPoints, int healthPoints, bool isBase, int secLeft)
 {
+    int lifePoint = healPoints + hitPoints;
+    if (inTheBase)
+    {
+        tftGameScreenBase(healthPoints, lifePoint, secLeft);        
+    }
+    
     if (deviceRole == grZombie)    
     {
-        int lifePoint = healPoints + hitPoints;
-        tftPrintText(String(healthPoints));
+        
+        //tftPrintText(String(healthPoints));
         if (lifePoint == 0)
         {
             valPlayPattern(GAME_ZOMBIE_NEUTRAL);           
@@ -152,12 +147,17 @@ void gameVisualizeStep(tGameRole deviceRole, int zCount, int hCount, int bCount,
         {
             valPlayPattern(GAME_ZOMBIE_KILLING);           
         }
+        
+        if (!inTheBase)
+        {
+            tftGameScreenZombie(healthPoints, lifePoint, secLeft);
+        }
     }
     
     if (deviceRole == grHuman)    
     {
-        int lifePoint = healPoints + hitPoints;
-        tftPrintText(String(healthPoints), TFT_BLACK, TFT_RED);
+        
+        //tftPrintText(String(healthPoints), TFT_BLACK, TFT_RED);
         if (lifePoint == 0)
         {
             valPlayPattern(GAME_HUMAN_NEUTRAL);           
@@ -172,26 +172,136 @@ void gameVisualizeStep(tGameRole deviceRole, int zCount, int hCount, int bCount,
         {
             valPlayPattern(GAME_HUMAN_KILLING);           
         }
+
+        if (!inTheBase)
+        {
+            tftGameScreenHuman(healthPoints, lifePoint, secLeft);
+        }
     }
 }
 
-void doGameStep(void)
+bool isInTheBase(int healPoints)
+{
+    if (!healPoints)
+    {
+        inTheBase = false;
+        if (lastBaseStartedMs)
+        {
+            if (millis() - lastBaseStartedMs > 15000) //BaseRestoredAfterMs 
+            {
+                lastBaseStartedMs = 0;
+                Serial.println(">>> Base restored!");
+            }            
+        }
+        return false;
+    }
+    
+    if (!lastBaseStartedMs)
+    {
+        lastBaseStartedMs = millis();
+        inTheBase = true;
+        Serial.println(">>> Base started!");
+        return true;
+    }
+    
+    if ((lastBaseStartedMs) && (millis() - lastBaseStartedMs > 5000)) // BaseProtectionMs
+    {
+        #warning CONFIGURE THE BASE!!!
+        inTheBase = false;        
+    }
+    return inTheBase;
+}
+
+static void processGameOver(void)
+{
+    Serial.println(">>>>>>>>>> GAME OVER <<<<<<<<<<<");
+    gameOverPicture();
+    while(true)
+    {
+
+    }
+}
+
+static int32_t getGameDurationLeftS(void)
+{
+    int32_t res;
+    if (!gameStartedMs)
+    {
+        gameStartedMs = millis();
+    }
+
+    res = gameDurationS - ((millis() - gameStartedMs) / 1000);
+
+    if (res < 0)
+    {
+        res = 0;
+    }
+
+    return res;
+}
+
+bool doGameStep(void)
 {
     int zCount, hCount, bCount, healPoints, hitPoints, healthPoints;
     bool isBase;
     tGameRole deviceRole;
+    int secLeft = 300;
     bool doStep = loopScanRecords(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase);
     if (!doStep)
     {
-        return;
+        return true;
     }
     gameStep++;
     if (healthPoints > getSelfDataRecord()->maxHealth)
     {
         healthPoints = getSelfDataRecord()->maxHealth;
     }
+
+    if (inTheBase)
+    {
+        hitPoints = 0;
+    }
+
+    if (healthPoints < 0)
+    {
+        Serial.println("***** UNDER ZERO HEALTH *****");
+        tGameRole newRole = revertGameRole();   
+        // preGame(newRole, 10000); 
+        // healthPoints = getSelfDataRecord()->beginHealth;
+        if (newRole == grHuman)
+        {         
+            Serial.println("***** TO HUMAN *****");
+            startZombieGame(GAME_SWAPROLE_PRE_MS);
+        }
+
+        if (newRole == grZombie)
+        {        
+            Serial.println("***** TO ZOMBIE *****");
+            startZombieGame(GAME_SWAPROLE_PRE_MS);
+        }
+        
+        lastBaseStartedMs = 0;
+        inTheBase = 0;         
+        return true;
+    }
+
+    secLeft =  getGameDurationLeftS();
+
+    if (deviceRole == grBase)
+    {
+        secLeft = 3000;
+    }
+
+    if (secLeft <= 0) 
+    {
+        processGameOver();        
+        return false;
+    }
+
+    isInTheBase(healPoints);
     gamePrintStep(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase);
-    gameVisualizeStep(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase);
+    gameVisualizeStep(deviceRole, zCount, hCount, bCount, healPoints, hitPoints, healthPoints, isBase, secLeft);
+    return true;
 }
 
 bool startFixedGame(String captS, String jsonS)
@@ -210,15 +320,14 @@ bool startFixedGame(String captS, String jsonS)
     return false;
 }
 
-bool startGameFromFile(String captS, String fileName)
-{    
-    const uint16_t fixedGameToMs = 10000;
+bool startGameFromFile(String captS, String fileName, uint16_t gameToMs)
+{        
     Serial.print(">>> ");
     Serial.println(captS);
 
     if (setSelfJsonFromFile(fileName))
     {
-        preGame(getSelfDataRecord()->deviceRole, fixedGameToMs);
+        preGame(getSelfDataRecord()->deviceRole, gameToMs);
         espInitRxTx(getSelfTxPacket(), true);
         startCommunicator();
         return true;
@@ -226,6 +335,23 @@ bool startGameFromFile(String captS, String fileName)
     return false;
 }
 
+bool startZombieGame(uint16_t gameToMs)
+{
+    return startGameFromFile("startZombieGame", GAME_ZOMB_FNAME, gameToMs);
+}
 
+bool startHumanGame(uint16_t gameToMs)
+{
+    return startGameFromFile("startHumanGame", GAME_HUMB_FNANE, gameToMs);
+}
 
+bool startBaseGame(void)
+{
+    return startGameFromFile("startBaseGame", GAME_BASE_FNAME, 0);
+}
+
+bool startRssiReader(void)
+{
+    return startGameFromFile("startGameFromFile", GAME_RSSI_FNAME, 0);
+}
 

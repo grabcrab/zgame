@@ -19,7 +19,7 @@ bool ConfigManager::initialize()
     {
         return true;
     }
-    
+
     if (!SPIFFS.begin(false))
     {
         Serial.println("!!! ConfigManager: Failed to initialize SPIFFS");
@@ -28,16 +28,16 @@ bool ConfigManager::initialize()
 
     if (!loadFromFile())
     {
-        //Serial.println("!!! ConfigManager: Failed to load config!");    
-        return false;    
+        // Serial.println("!!! ConfigManager: Failed to load config!");
+        return false;
     }
 
     initialized = true;
     Serial.println(">>> ConfigManager: Initialized successfully");
 
-    #if (NET_CONFIG_DEINIT_SPIFFS)
+#if (NET_CONFIG_DEINIT_SPIFFS)
     SPIFFS.end();
-        #endif
+#endif
     return true;
 }
 
@@ -48,7 +48,7 @@ void ConfigManager::deinitialize()
         return;
     }
 
-#ifndef USE_PSRAM_FOR_CONFIG    
+#ifndef USE_PSRAM_FOR_CONFIG
     wifiNetworks.clear();
 #endif
 
@@ -59,13 +59,13 @@ void ConfigManager::deinitialize()
 void ConfigManager::setDefaults()
 {
 #ifdef USE_PSRAM_FOR_CONFIG
-    strncpy(deviceName, "BAZA_GAME", MAX_DEVICE_NAME_LEN - 1);    
+    strncpy(deviceName, "BAZA_GAME", MAX_DEVICE_NAME_LEN - 1);
     deviceName[MAX_DEVICE_NAME_LEN - 1] = '\0';
     strncpy(deviceRole, "roleError", MAX_DEVICE_ROLE_LEN - 1);
     deviceRole[MAX_DEVICE_ROLE_LEN - 1] = '\0';
     isBaseStation = false;
     wifiNetworkCount = 0;
-    memset(fileServerUrl, 0, MAX_SERVER_URL_LEN); 
+    memset(fileServerUrl, 0, MAX_SERVER_URL_LEN);
     memset(gameServerUrl, 0, MAX_SERVER_URL_LEN);
     memset(otaServerUrl, 0, MAX_SERVER_URL_LEN);
     memset(wifiNetworks, 0, sizeof(wifiNetworks));
@@ -125,7 +125,7 @@ bool ConfigManager::loadFromFile()
         file.close();
         return false;
     }
-    
+
     char *buffer = static_cast<char *>(allocateMemory(fileSize + 1));
     if (!buffer)
     {
@@ -160,9 +160,9 @@ bool ConfigManager::loadFromFile()
     deviceRole[MAX_DEVICE_ROLE_LEN - 1] = '\0';
 
     deviceID = doc["deviceID"] | 1111;
-    
-    //isBaseStation = doc["base_station"] | false;
-    
+
+    // isBaseStation = doc["base_station"] | false;
+
     wifiNetworkCount = 0;
     if (doc.containsKey("wifi_networks"))
     {
@@ -181,27 +181,31 @@ bool ConfigManager::loadFromFile()
             }
         }
     }
-    
+
     if (doc.containsKey("servers"))
     {
         JsonObject servers = doc["servers"];
 
-        const char *fsUrl = servers["file_server"] | "";
+        const char *fsUrl = servers["file_server"] | "CONFIG ERROR";
         strncpy(fileServerUrl, fsUrl, MAX_SERVER_URL_LEN - 1);
         fileServerUrl[MAX_SERVER_URL_LEN - 1] = '\0';
 
-        const char *gsUrl = servers["game_server"] | "";
+        const char *gsUrl = servers["game_server"] | "CONFIG ERROR";
         strncpy(gameServerUrl, gsUrl, MAX_SERVER_URL_LEN - 1);
         gameServerUrl[MAX_SERVER_URL_LEN - 1] = '\0';
 
-        const char *otaUrl = servers["ota_server"] | "";
+        const char *otaUrl = servers["ota_server"] | "CONFIG ERROR";
         strncpy(otaServerUrl, otaUrl, MAX_SERVER_URL_LEN - 1);
         otaServerUrl[MAX_SERVER_URL_LEN - 1] = '\0';
+
+        const char *sysUrl = servers["sys_server"] | "CONFIG ERROR";
+        strncpy(sysServerUrl, sysUrl, MAX_SERVER_URL_LEN - 1);
+        sysServerUrl[MAX_SERVER_URL_LEN - 1] = '\0';
     }
 #else
     deviceName = doc["device_name"] | "BAZA_GAME";
     isBaseStation = doc["base_station"] | false;
-    
+
     wifiNetworks.clear();
     if (doc.containsKey("wifi_networks"))
     {
@@ -244,7 +248,7 @@ bool ConfigManager::addWifiNetwork(const char *ssid, const char *password)
         Serial.println("ConfigManager: Maximum WiFi networks reached");
         return false;
     }
-    
+
     for (size_t i = 0; i < wifiNetworkCount; i++)
     {
         if (strcmp(wifiNetworks[i].ssid, ssid) == 0)
@@ -295,8 +299,8 @@ bool ConfigManager::saveConfig() const
 
 #ifdef USE_PSRAM_FOR_CONFIG
     doc["device_name"] = deviceName;
-    doc["deviceRole"]  = deviceRole;   
-    doc["deviceID"]    = deviceID;
+    doc["deviceRole"] = deviceRole;
+    doc["deviceID"] = deviceID;
 
     JsonArray networks = doc["wifi_networks"].to<JsonArray>();
     for (size_t i = 0; i < wifiNetworkCount; i++)
@@ -354,7 +358,7 @@ void ConfigManager::printConfig() const
 #ifdef USE_PSRAM_FOR_CONFIG
     Serial.printf("Device Name: %s\n", deviceName);
     Serial.printf("Device Role: %s\n", deviceRole);
-    //Serial.printf("Base Station: %s\n", isBaseStation ? "Yes" : "No");
+    // Serial.printf("Base Station: %s\n", isBaseStation ? "Yes" : "No");
 
     Serial.printf("WiFi Networks (%d):\n", wifiNetworkCount);
     for (size_t i = 0; i < wifiNetworkCount; i++)
@@ -423,7 +427,7 @@ void ConfigManager::destroyFromPSRAM(ConfigManager *instance)
         return;
 
     instance->~ConfigManager();
-    
+
     void *psramStart = (void *)0x3F800000; // Примерный адрес начала PSRAM
     void *psramEnd = (void *)((uint8_t *)psramStart + ESP.getPsramSize());
 
@@ -440,9 +444,8 @@ void ConfigManager::destroyFromPSRAM(ConfigManager *instance)
 }
 #endif
 
-
 namespace
-{    
+{
 #ifdef USE_PSRAM_FOR_CONFIG
     ConfigManager *g_configInstance = nullptr;
 #else
@@ -454,7 +457,7 @@ namespace
 
 namespace ConfigAPI
 {
-
+    String discoServer = "";
     bool initialize()
     {
         if (g_instanceCreated)
@@ -514,6 +517,45 @@ namespace ConfigAPI
         return g_instanceCreated && g_configInstance && g_configInstance->isInitialized();
     }
 
+    void setDiscoServer(String dS)
+    {
+        discoServer = dS;
+    }
+
+    String replaceUrlAddress(String fullAddress)
+    {
+        String newAddress = discoServer;
+        if (newAddress.length() == 0)
+        {
+            return fullAddress;
+        }
+        
+        int protocolEndIndex = fullAddress.indexOf("://");
+        if (protocolEndIndex == -1)
+        {
+            return fullAddress;
+        }
+
+        String protocol = fullAddress.substring(0, protocolEndIndex + 3); // Include "://"
+
+        String remainingUrl = fullAddress.substring(protocolEndIndex + 3);
+        int pathStartIndex = remainingUrl.indexOf('/');
+        int portStartIndex = remainingUrl.indexOf(':');
+
+        String pathAndQuery = "";
+        
+        if (portStartIndex != -1 && (pathStartIndex == -1 || portStartIndex < pathStartIndex))
+        {         
+            String portAndPath = remainingUrl.substring(portStartIndex);
+            pathAndQuery = portAndPath;
+        }
+        else if (pathStartIndex != -1)
+        { 
+            pathAndQuery = remainingUrl.substring(pathStartIndex);
+        }
+        return protocol + newAddress + pathAndQuery;
+    }
+
     String getDeviceName()
     {
         if (!isInitialized())
@@ -561,7 +603,7 @@ namespace ConfigAPI
             Serial.println("ConfigAPI: Not initialized");
             return String("");
         }
-        return g_configInstance->getFileServerUrl();
+        return replaceUrlAddress(g_configInstance->getFileServerUrl());
     }
 
     String getGameServerUrl()
@@ -571,7 +613,7 @@ namespace ConfigAPI
             Serial.println("ConfigAPI: Not initialized");
             return String("");
         }
-        return g_configInstance->getGameServerUrl();
+        return replaceUrlAddress(g_configInstance->getGameServerUrl());
     }
 
     String getOTAServerUrl()
@@ -581,7 +623,17 @@ namespace ConfigAPI
             Serial.println("ConfigAPI: Not initialized");
             return String("");
         }
-        return g_configInstance->getOTAServerUrl();
+        return replaceUrlAddress(g_configInstance->getOTAServerUrl());
+    }
+
+    String getSysServerUrl()
+    {
+        if (!isInitialized())
+        {
+            Serial.println("ConfigAPI: Not initialized");
+            return String("");
+        }
+        return replaceUrlAddress(g_configInstance->getSysServerUrl());
     }
 
     size_t getWifiNetworkCount()
@@ -652,7 +704,7 @@ namespace ConfigAPI
         {
             Serial.println("ConfigAPI: Not initialized");
             return false;
-        }        
+        }
         g_configInstance->deinitialize();
         return g_configInstance->initialize();
     }

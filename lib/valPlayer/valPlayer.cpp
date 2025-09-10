@@ -241,7 +241,13 @@ bool valPlayNext(void)
 
 bool valPlayPattern(String patternName)
 {
+    static String prevPatternName = "";
     String resS = "";
+    if (patternName == prevPatternName)
+    {
+        return true;
+    }
+    prevPatternName = patternName;
     tValStatus *valStatus = valTakeStatus();
     if (valStatus == NULL)
     {
