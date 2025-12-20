@@ -10,6 +10,7 @@ import json
 import hashlib
 import os
 import sys
+import atexit
 import psutil
 import threading
 import time
@@ -39,11 +40,71 @@ DEFAULT_CONFIG = {
         'auto_start': True,
         'firmware_dir': './firmware',
         'firmware_file': 'firmware.bin'
+    },
+    'device_status_server': {
+        'port': 5004,
+        'auto_start': True,
+        'device_timeout': 30  # Seconds before device considered offline
     }
 }
 
 CONFIG_FILE = 'server_config.json'
 TCP_PORT = 3232  # Fixed TCP port for discovery
+LOCK_PORT = 47200  # Port used for single instance lock
+
+
+# ============== Single Instance Lock ==============
+class SingleInstance:
+    """
+    Ensures only one instance of the application runs at a time.
+    Uses a socket-based lock which is automatically released when the process exits.
+    """
+    def __init__(self, port=LOCK_PORT):
+        self.port = port
+        self.lock_socket = None
+    
+    def acquire(self):
+        """
+        Try to acquire the single instance lock.
+        Returns True if successful, False if another instance is running.
+        """
+        try:
+            self.lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+            self.lock_socket.bind(('127.0.0.1', self.port))
+            self.lock_socket.listen(1)
+            # Register cleanup on exit
+            atexit.register(self.release)
+            return True
+        except socket.error:
+            # Port is already in use - another instance is running
+            return False
+    
+    def release(self):
+        """Release the single instance lock."""
+        if self.lock_socket:
+            try:
+                self.lock_socket.close()
+            except:
+                pass
+            self.lock_socket = None
+
+
+def bring_existing_window_to_front():
+    """
+    Attempt to bring the existing instance window to the front.
+    Platform-specific implementation.
+    """
+    if platform.system() == 'Windows':
+        try:
+            import ctypes
+            # Find window by title
+            hwnd = ctypes.windll.user32.FindWindowW(None, "xGAME Server Manager")
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except:
+            pass
 
 
 # ============== Settings Manager ==============
@@ -669,6 +730,231 @@ class OTAServer:
         self.log("OTA server stopped", "SUCCESS")
 
 
+# ============== Device Status Server ==============
+class DeviceStatusServer:
+    def __init__(self, log_callback=None, settings=None, gui_callback=None):
+        self.log_callback = log_callback
+        self.settings = settings
+        self.gui_callback = gui_callback  # Callback to update GUI table
+        self.running = False
+        self.server_thread = None
+        self.monitor_thread = None
+        self.app = None
+        self.devices = {}  # MAC -> device info
+        self.pending_commands = {}  # MAC -> command
+        self.devices_lock = threading.Lock()
+        self.known_online_devices = set()  # Track which devices were online
+    
+    @property
+    def port(self):
+        if self.settings:
+            return self.settings.get('device_status_server', 'port', 5004)
+        return 5004
+    
+    @property
+    def device_timeout(self):
+        if self.settings:
+            return self.settings.get('device_status_server', 'device_timeout', 30)
+        return 30
+    
+    def log(self, message, level="INFO"):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_message = f"[{timestamp}] [{level}] {message}"
+        if self.log_callback:
+            self.log_callback(log_message, level)
+        else:
+            print(log_message)
+    
+    def get_devices(self):
+        """Get list of all devices with their status"""
+        with self.devices_lock:
+            current_time = time.time()
+            result = []
+            for mac, info in self.devices.items():
+                device = info.copy()
+                # Calculate if device is online (received update within timeout)
+                last_seen = info.get('last_seen', 0)
+                device['online'] = (current_time - last_seen) < self.device_timeout
+                result.append(device)
+            return result
+    
+    def set_command(self, mac, command):
+        """Queue a command for a device"""
+        with self.devices_lock:
+            if mac in self.devices:
+                self.pending_commands[mac] = command
+                self.log(f"Command '{command}' queued for device {mac}", "INFO")
+                return True
+            return False
+    
+    def monitor_devices(self):
+        """Monitor devices and detect when they go offline"""
+        while self.running:
+            time.sleep(5)  # Check every 5 seconds
+            
+            with self.devices_lock:
+                current_time = time.time()
+                for mac, info in self.devices.items():
+                    last_seen = info.get('last_seen', 0)
+                    is_online = (current_time - last_seen) < self.device_timeout
+                    device_name = info.get('name', mac)
+                    
+                    # Check if device just went offline
+                    if not is_online and mac in self.known_online_devices:
+                        self.known_online_devices.remove(mac)
+                        self.log(f"OFFLINE: {device_name} went offline", "WARNING")
+                    # Check if device came back online
+                    elif is_online and mac not in self.known_online_devices:
+                        self.known_online_devices.add(mac)
+    
+    def create_flask_app(self):
+        app = Flask(__name__)
+        server = self
+        
+        @app.route('/status', methods=['POST'])
+        def receive_status():
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({'error': 'No JSON data'}), 400
+                
+                mac = data.get('mac')
+                if not mac:
+                    return jsonify({'error': 'No MAC address'}), 400
+                
+                with server.devices_lock:
+                    # Check if this is a new device or status changed
+                    is_new_device = mac not in server.devices
+                    old_device_status = server.devices.get(mac, {}).get('device_status', '')
+                    old_game_status = server.devices.get(mac, {}).get('game_status', '')
+                    new_device_status = data.get('device_status', 'UNKNOWN')
+                    new_game_status = data.get('game_status', '')
+                    
+                    # Update device info
+                    server.devices[mac] = {
+                        'mac': mac,
+                        'name': data.get('name', 'Unknown'),
+                        'ip': data.get('ip', ''),
+                        'ssid': data.get('ssid', ''),
+                        'rssi': data.get('rssi', 0),
+                        'uptime': data.get('uptime', 0),
+                        'battery_mv': data.get('battery_mv', 0),
+                        'battery_pct': data.get('battery_pct', 0),
+                        'accel_activity': data.get('accel_activity', 0),
+                        'device_status': new_device_status,
+                        'game_status': new_game_status,
+                        'free_heap': data.get('free_heap', 0),
+                        'max_alloc_heap': data.get('max_alloc_heap', 0),
+                        'last_seen': time.time()
+                    }
+                    
+                    # Check for pending command
+                    response_data = {'status': 'ok'}
+                    if mac in server.pending_commands:
+                        response_data['command'] = server.pending_commands[mac]
+                        del server.pending_commands[mac]
+                        server.log(f"Sent command '{response_data['command']}' to {data.get('name', mac)}", "SUCCESS")
+                
+                # Log only important events
+                if is_new_device:
+                    server.log(f"NEW DEVICE: {data.get('name', mac)} ({data.get('ip', '')}) connected", "SUCCESS")
+                elif old_device_status != new_device_status:
+                    server.log(f"STATUS CHANGE: {data.get('name', mac)} - Device: {old_device_status} → {new_device_status}", "INFO")
+                elif old_game_status != new_game_status:
+                    server.log(f"GAME STATUS: {data.get('name', mac)} - {new_game_status}", "INFO")
+                
+                # Notify GUI to update
+                if server.gui_callback:
+                    try:
+                        server.gui_callback()
+                    except:
+                        pass
+                
+                return jsonify(response_data)
+                
+            except Exception as e:
+                server.log(f"Error processing status: {e}", "ERROR")
+                return jsonify({'error': str(e)}), 500
+        
+        @app.route('/devices', methods=['GET'])
+        def list_devices():
+            """Get list of all known devices"""
+            return jsonify({'devices': server.get_devices()})
+        
+        @app.route('/command', methods=['POST'])
+        def send_command():
+            """Queue a command for a device (for external API use)"""
+            try:
+                data = request.get_json()
+                mac = data.get('mac')
+                command = data.get('command')
+                
+                if not mac or not command:
+                    return jsonify({'error': 'Missing mac or command'}), 400
+                
+                if command not in ['reboot', 'sleep']:
+                    return jsonify({'error': 'Invalid command'}), 400
+                
+                if server.set_command(mac, command):
+                    return jsonify({'status': 'ok', 'message': f'Command {command} queued for {mac}'})
+                else:
+                    return jsonify({'error': 'Device not found'}), 404
+                    
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @app.route('/', methods=['GET'])
+        def index():
+            device_count = len(server.devices)
+            return f"ESP32 Device Status Server - {device_count} device(s) registered"
+        
+        return app
+    
+    def run_server(self):
+        try:
+            from werkzeug.serving import make_server
+            import logging
+            log = logging.getLogger('werkzeug')
+            log.setLevel(logging.ERROR)  # Suppress Flask's default logging
+            
+            self.app = self.create_flask_app()
+            self.http_server = make_server('0.0.0.0', self.port, self.app, threaded=True)
+            self.log(f"Device status server started on port {self.port}", "SUCCESS")
+            self.http_server.serve_forever()
+        except Exception as e:
+            self.log(f"Device status server error: {e}", "ERROR")
+            self.running = False
+    
+    def start(self):
+        if self.running:
+            self.log("Device status server already running", "WARNING")
+            return
+        
+        self.running = True
+        self.log(f"Starting device status server on port {self.port}...")
+        
+        self.server_thread = threading.Thread(target=self.run_server, daemon=True)
+        self.server_thread.start()
+        
+        self.monitor_thread = threading.Thread(target=self.monitor_devices, daemon=True)
+        self.monitor_thread.start()
+    
+    def stop(self):
+        if not self.running:
+            return
+        
+        self.log("Stopping device status server...")
+        self.running = False
+        
+        if hasattr(self, 'http_server'):
+            try:
+                self.http_server.shutdown()
+            except:
+                pass
+        
+        self.log("Device status server stopped", "SUCCESS")
+
+
 # ============== Main GUI ==============
 class ServerManagerGUI:
     def __init__(self, root):
@@ -685,6 +971,11 @@ class ServerManagerGUI:
         self.disco_server = DiscoveryServer(log_callback=self.add_disco_log, settings=self.settings)
         self.file_server = FileServer(log_callback=self.add_file_log, settings=self.settings)
         self.ota_server = OTAServer(log_callback=self.add_ota_log, settings=self.settings)
+        self.device_status_server = DeviceStatusServer(
+            log_callback=self.add_device_status_log, 
+            settings=self.settings,
+            gui_callback=self.schedule_device_table_update
+        )
         
         self.interfaces = []
         self.interface_vars = []
@@ -714,29 +1005,36 @@ class ServerManagerGUI:
         header_frame.columnconfigure(1, weight=1)
         header_frame.columnconfigure(3, weight=1)
         header_frame.columnconfigure(5, weight=1)
+        header_frame.columnconfigure(7, weight=1)
         
         # Discovery Server Status
         ttk.Label(header_frame, text="Discovery:", font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
         self.disco_status_label = ttk.Label(header_frame, text="● Stopped", foreground="red")
-        self.disco_status_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 20))
+        self.disco_status_label.grid(row=0, column=1, sticky=tk.W, padx=(0, 15))
         
         # File Server Status
         ttk.Label(header_frame, text="File Server:", font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=2, sticky=tk.W, padx=(0, 5))
         self.file_status_label = ttk.Label(header_frame, text="● Stopped", foreground="red")
-        self.file_status_label.grid(row=0, column=3, sticky=tk.W, padx=(0, 20))
+        self.file_status_label.grid(row=0, column=3, sticky=tk.W, padx=(0, 15))
         
         # OTA Server Status
         ttk.Label(header_frame, text="OTA Server:", font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=4, sticky=tk.W, padx=(0, 5))
         self.ota_status_label = ttk.Label(header_frame, text="● Stopped", foreground="red")
-        self.ota_status_label.grid(row=0, column=5, sticky=tk.W)
+        self.ota_status_label.grid(row=0, column=5, sticky=tk.W, padx=(0, 15))
+        
+        # Device Status Server Status
+        ttk.Label(header_frame, text="Devices:", font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=6, sticky=tk.W, padx=(0, 5))
+        self.device_status_status_label = ttk.Label(header_frame, text="● Stopped", foreground="red")
+        self.device_status_status_label.grid(row=0, column=7, sticky=tk.W)
         
         # Port info (will be updated dynamically)
         self.port_info_label = ttk.Label(header_frame, 
             text=f"Ports: Discovery={self.settings.get('discovery', 'port')}, "
                  f"File={self.settings.get('file_server', 'port')}, "
-                 f"OTA={self.settings.get('ota_server', 'port')}",
+                 f"OTA={self.settings.get('ota_server', 'port')}, "
+                 f"Devices={self.settings.get('device_status_server', 'port')}",
             font=('TkDefaultFont', 8))
-        self.port_info_label.grid(row=1, column=0, columnspan=6, sticky=tk.W, pady=(5, 0))
+        self.port_info_label.grid(row=1, column=0, columnspan=8, sticky=tk.W, pady=(5, 0))
         
         # ===== Notebook with Tabs =====
         self.notebook = ttk.Notebook(main_frame)
@@ -746,6 +1044,7 @@ class ServerManagerGUI:
         self.create_discovery_tab()
         self.create_file_server_tab()
         self.create_ota_server_tab()
+        self.create_device_status_tab()
         self.create_settings_tab()
     
     def create_discovery_tab(self):
@@ -915,6 +1214,107 @@ class ServerManagerGUI:
         self.ota_log_text.tag_config("WARNING", foreground="orange")
         self.ota_log_text.tag_config("ERROR", foreground="red")
     
+    def create_device_status_tab(self):
+        """Create the Device Status tab"""
+        tab = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(tab, text="Device Status")
+        
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(1, weight=1)
+        tab.rowconfigure(3, weight=1)
+        
+        # Control Buttons Frame
+        control_frame = ttk.Frame(tab)
+        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        self.device_status_start_btn = ttk.Button(control_frame, text="Start Server", command=self.start_device_status_server)
+        self.device_status_start_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.device_status_stop_btn = ttk.Button(control_frame, text="Stop Server", command=self.stop_device_status_server, state='disabled')
+        self.device_status_stop_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(control_frame, text="Refresh", command=self.refresh_device_table).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(control_frame, text="Clear Log", command=self.clear_device_status_log).pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Command buttons for all devices (with separator)
+        ttk.Separator(control_frame, orient='vertical').pack(side=tk.LEFT, fill='y', padx=10)
+        
+        ttk.Label(control_frame, text="All Devices:", font=('TkDefaultFont', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.device_reboot_all_btn = ttk.Button(control_frame, text="Reboot All", command=self.send_reboot_all_command)
+        self.device_reboot_all_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.device_sleep_all_btn = ttk.Button(control_frame, text="Sleep All", command=self.send_sleep_all_command)
+        self.device_sleep_all_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Device Table
+        table_frame = ttk.LabelFrame(tab, text="Connected Devices", padding="10")
+        table_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+        
+        # Create Treeview with columns
+        columns = ('name', 'mac', 'ip', 'ssid', 'rssi', 'uptime', 'battery', 'accel', 'free_heap', 'max_alloc', 'device_status', 'game_status', 'online')
+        self.device_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=8)
+        
+        # Define headings
+        self.device_tree.heading('name', text='Name')
+        self.device_tree.heading('mac', text='MAC')
+        self.device_tree.heading('ip', text='IP')
+        self.device_tree.heading('ssid', text='SSID')
+        self.device_tree.heading('rssi', text='RSSI')
+        self.device_tree.heading('uptime', text='Uptime')
+        self.device_tree.heading('battery', text='Battery')
+        self.device_tree.heading('accel', text='Accel')
+        self.device_tree.heading('free_heap', text='Free Heap')
+        self.device_tree.heading('max_alloc', text='Max Alloc')
+        self.device_tree.heading('device_status', text='Dev Status')
+        self.device_tree.heading('game_status', text='Game Status')
+        self.device_tree.heading('online', text='Online')
+        
+        # Define column widths and center alignment
+        self.device_tree.column('name', width=80, minwidth=60, anchor='center')
+        self.device_tree.column('mac', width=130, minwidth=100, anchor='center')
+        self.device_tree.column('ip', width=100, minwidth=80, anchor='center')
+        self.device_tree.column('ssid', width=80, minwidth=60, anchor='center')
+        self.device_tree.column('rssi', width=50, minwidth=40, anchor='center')
+        self.device_tree.column('uptime', width=70, minwidth=50, anchor='center')
+        self.device_tree.column('battery', width=100, minwidth=70, anchor='center')
+        self.device_tree.column('accel', width=50, minwidth=40, anchor='center')
+        self.device_tree.column('free_heap', width=80, minwidth=60, anchor='center')
+        self.device_tree.column('max_alloc', width=80, minwidth=60, anchor='center')
+        self.device_tree.column('device_status', width=80, minwidth=60, anchor='center')
+        self.device_tree.column('game_status', width=100, minwidth=70, anchor='center')
+        self.device_tree.column('online', width=50, minwidth=40, anchor='center')
+        
+        # Add scrollbars
+        tree_scroll_y = ttk.Scrollbar(table_frame, orient='vertical', command=self.device_tree.yview)
+        tree_scroll_x = ttk.Scrollbar(table_frame, orient='horizontal', command=self.device_tree.xview)
+        self.device_tree.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
+        
+        self.device_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        tree_scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Configure tag for offline devices
+        self.device_tree.tag_configure('offline', foreground='gray')
+        self.device_tree.tag_configure('online', foreground='black')
+        
+        # Log Display
+        log_frame = ttk.LabelFrame(tab, text="Server Log", padding="10")
+        log_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(0, weight=1)
+        
+        self.device_status_log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, height=8, state='disabled')
+        self.device_status_log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        self.device_status_log_text.tag_config("INFO", foreground="black")
+        self.device_status_log_text.tag_config("SUCCESS", foreground="green")
+        self.device_status_log_text.tag_config("WARNING", foreground="orange")
+        self.device_status_log_text.tag_config("ERROR", foreground="red")
+    
     def create_settings_tab(self):
         """Create the Settings tab"""
         tab = ttk.Frame(self.notebook, padding="10")
@@ -976,9 +1376,27 @@ class ServerManagerGUI:
         self.ota_autostart_var = tk.BooleanVar(value=self.settings.get('ota_server', 'auto_start'))
         ttk.Checkbutton(ota_frame, text="Run on app start", variable=self.ota_autostart_var).grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
         
+        # ===== Device Status Server Settings =====
+        device_status_frame = ttk.LabelFrame(tab, text="Device Status Server", padding="10")
+        device_status_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        device_status_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(device_status_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.device_status_port_var = tk.StringVar(value=str(self.settings.get('device_status_server', 'port')))
+        device_status_port_entry = ttk.Entry(device_status_frame, textvariable=self.device_status_port_var, width=10)
+        device_status_port_entry.grid(row=0, column=1, sticky=tk.W)
+        
+        ttk.Label(device_status_frame, text="Device Timeout (sec):").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.device_status_timeout_var = tk.StringVar(value=str(self.settings.get('device_status_server', 'device_timeout')))
+        device_status_timeout_entry = ttk.Entry(device_status_frame, textvariable=self.device_status_timeout_var, width=10)
+        device_status_timeout_entry.grid(row=1, column=1, sticky=tk.W, pady=(5, 0))
+        
+        self.device_status_autostart_var = tk.BooleanVar(value=self.settings.get('device_status_server', 'auto_start'))
+        ttk.Checkbutton(device_status_frame, text="Run on app start", variable=self.device_status_autostart_var).grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
+        
         # ===== Save Button =====
         button_frame = ttk.Frame(tab)
-        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
         
         ttk.Button(button_frame, text="Save Settings", command=self.save_settings).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(button_frame, text="Reset to Defaults", command=self.reset_settings).pack(side=tk.LEFT)
@@ -986,7 +1404,7 @@ class ServerManagerGUI:
         # Note
         note_label = ttk.Label(tab, text="Note: Port changes require server restart to take effect.", 
                               font=('TkDefaultFont', 8), foreground="gray")
-        note_label.grid(row=4, column=0, sticky=tk.W, pady=(10, 0))
+        note_label.grid(row=5, column=0, sticky=tk.W, pady=(10, 0))
     
     def save_settings(self):
         """Save settings from GUI to config file"""
@@ -995,9 +1413,15 @@ class ServerManagerGUI:
             disco_port = int(self.disco_port_var.get())
             file_port = int(self.file_port_var.get())
             ota_port = int(self.ota_port_var.get())
+            device_status_port = int(self.device_status_port_var.get())
+            device_status_timeout = int(self.device_status_timeout_var.get())
             
-            if not (1 <= disco_port <= 65535 and 1 <= file_port <= 65535 and 1 <= ota_port <= 65535):
+            if not (1 <= disco_port <= 65535 and 1 <= file_port <= 65535 and 
+                    1 <= ota_port <= 65535 and 1 <= device_status_port <= 65535):
                 raise ValueError("Port must be between 1 and 65535")
+            
+            if device_status_timeout < 5:
+                raise ValueError("Device timeout must be at least 5 seconds")
             
             # Save discovery settings
             self.settings.set('discovery', 'port', disco_port)
@@ -1014,13 +1438,18 @@ class ServerManagerGUI:
             self.settings.set('ota_server', 'firmware_file', self.ota_firmware_file_var.get())
             self.settings.set('ota_server', 'auto_start', self.ota_autostart_var.get())
             
+            # Save device status server settings
+            self.settings.set('device_status_server', 'port', device_status_port)
+            self.settings.set('device_status_server', 'device_timeout', device_status_timeout)
+            self.settings.set('device_status_server', 'auto_start', self.device_status_autostart_var.get())
+            
             # Update displayed values
             self.update_displayed_settings()
             
             messagebox.showinfo("Settings", "Settings saved successfully!\n\nRestart servers for port changes to take effect.")
             
         except ValueError as e:
-            messagebox.showerror("Error", f"Invalid port number: {e}")
+            messagebox.showerror("Error", f"Invalid setting: {e}")
     
     def reset_settings(self):
         """Reset settings to defaults"""
@@ -1041,6 +1470,10 @@ class ServerManagerGUI:
             self.ota_firmware_file_var.set(DEFAULT_CONFIG['ota_server']['firmware_file'])
             self.ota_autostart_var.set(DEFAULT_CONFIG['ota_server']['auto_start'])
             
+            self.device_status_port_var.set(str(DEFAULT_CONFIG['device_status_server']['port']))
+            self.device_status_timeout_var.set(str(DEFAULT_CONFIG['device_status_server']['device_timeout']))
+            self.device_status_autostart_var.set(DEFAULT_CONFIG['device_status_server']['auto_start'])
+            
             self.update_displayed_settings()
             messagebox.showinfo("Settings", "Settings reset to defaults.")
     
@@ -1050,7 +1483,8 @@ class ServerManagerGUI:
         self.port_info_label.config(
             text=f"Ports: Discovery={self.settings.get('discovery', 'port')}, "
                  f"File={self.settings.get('file_server', 'port')}, "
-                 f"OTA={self.settings.get('ota_server', 'port')}"
+                 f"OTA={self.settings.get('ota_server', 'port')}, "
+                 f"Devices={self.settings.get('device_status_server', 'port')}"
         )
         
         # Update file server tab
@@ -1192,6 +1626,133 @@ class ServerManagerGUI:
             os.makedirs(folder)
         self.open_folder(folder)
     
+    # ===== Device Status Server Methods =====
+    def start_device_status_server(self):
+        self.device_status_server.start()
+        self.device_status_start_btn.config(state='disabled')
+        self.device_status_stop_btn.config(state='normal')
+        self.device_status_status_label.config(text="● Running", foreground="green")
+    
+    def stop_device_status_server(self):
+        self.device_status_server.stop()
+        self.device_status_start_btn.config(state='normal')
+        self.device_status_stop_btn.config(state='disabled')
+        self.device_status_status_label.config(text="● Stopped", foreground="red")
+    
+    def add_device_status_log(self, message, level="INFO"):
+        self.device_status_log_text.config(state='normal')
+        self.device_status_log_text.insert(tk.END, message + "\n", level)
+        self.device_status_log_text.see(tk.END)
+        self.device_status_log_text.config(state='disabled')
+    
+    def clear_device_status_log(self):
+        self.device_status_log_text.config(state='normal')
+        self.device_status_log_text.delete(1.0, tk.END)
+        self.device_status_log_text.config(state='disabled')
+    
+    def schedule_device_table_update(self):
+        """Schedule table update on main thread"""
+        self.root.after(0, self.refresh_device_table)
+    
+    def refresh_device_table(self):
+        """Refresh the device table with current device data"""
+        # Clear existing items
+        for item in self.device_tree.get_children():
+            self.device_tree.delete(item)
+        
+        # Get device list
+        devices = self.device_status_server.get_devices()
+        
+        for device in devices:
+            # Format uptime
+            uptime_sec = device.get('uptime', 0)
+            if uptime_sec >= 3600:
+                uptime_str = f"{uptime_sec // 3600}h {(uptime_sec % 3600) // 60}m"
+            elif uptime_sec >= 60:
+                uptime_str = f"{uptime_sec // 60}m {uptime_sec % 60}s"
+            else:
+                uptime_str = f"{uptime_sec}s"
+            
+            # Format battery
+            battery_str = f"{device.get('battery_pct', 0)}% ({device.get('battery_mv', 0)}mV)"
+            
+            # Format heap values (convert bytes to KB)
+            free_heap_kb = device.get('free_heap', 0) // 1024
+            max_alloc_kb = device.get('max_alloc_heap', 0) // 1024
+            
+            # Online status
+            online = device.get('online', False)
+            online_str = "✓" if online else "✗"
+            tag = 'online' if online else 'offline'
+            
+            values = (
+                device.get('name', ''),
+                device.get('mac', ''),
+                device.get('ip', ''),
+                device.get('ssid', ''),
+                f"{device.get('rssi', 0)} dBm",
+                uptime_str,
+                battery_str,
+                device.get('accel_activity', 0),
+                f"{free_heap_kb} KB",
+                f"{max_alloc_kb} KB",
+                device.get('device_status', ''),
+                device.get('game_status', ''),
+                online_str
+            )
+            
+            self.device_tree.insert('', tk.END, values=values, tags=(tag,), iid=device.get('mac'))
+    
+    def send_reboot_all_command(self):
+        """Send reboot command to all online devices"""
+        devices = self.device_status_server.get_devices()
+        online_devices = [d for d in devices if d.get('online', False)]
+        
+        if not online_devices:
+            messagebox.showinfo("No Devices", "No online devices to reboot.")
+            return
+        
+        device_names = ", ".join([d.get('name', d.get('mac', 'Unknown')) for d in online_devices])
+        
+        if messagebox.askyesno("Confirm Reboot All", 
+                               f"Are you sure you want to reboot ALL {len(online_devices)} online device(s)?\n\n"
+                               f"Devices: {device_names}"):
+            count = 0
+            for device in online_devices:
+                mac = device.get('mac')
+                if self.device_status_server.set_command(mac, 'reboot'):
+                    count += 1
+            
+            self.add_device_status_log(
+                f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Reboot command queued for {count} device(s)", 
+                "INFO"
+            )
+    
+    def send_sleep_all_command(self):
+        """Send sleep command to all online devices"""
+        devices = self.device_status_server.get_devices()
+        online_devices = [d for d in devices if d.get('online', False)]
+        
+        if not online_devices:
+            messagebox.showinfo("No Devices", "No online devices to put to sleep.")
+            return
+        
+        device_names = ", ".join([d.get('name', d.get('mac', 'Unknown')) for d in online_devices])
+        
+        if messagebox.askyesno("Confirm Sleep All", 
+                               f"Are you sure you want to put ALL {len(online_devices)} online device(s) to sleep?\n\n"
+                               f"Devices: {device_names}"):
+            count = 0
+            for device in online_devices:
+                mac = device.get('mac')
+                if self.device_status_server.set_command(mac, 'sleep'):
+                    count += 1
+            
+            self.add_device_status_log(
+                f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Sleep command queued for {count} device(s)", 
+                "INFO"
+            )
+    
     # ===== Utility Methods =====
     def open_folder(self, folder):
         """Open folder in system file manager"""
@@ -1223,6 +1784,11 @@ class ServerManagerGUI:
         if self.settings.get('ota_server', 'auto_start'):
             self.add_ota_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting OTA Server...", "INFO")
             self.start_ota_server()
+        
+        # Start Device Status Server if enabled
+        if self.settings.get('device_status_server', 'auto_start'):
+            self.add_device_status_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting Device Status Server...", "INFO")
+            self.start_device_status_server()
     
     def on_closing(self):
         """Handle window close event"""
@@ -1236,11 +1802,38 @@ class ServerManagerGUI:
             self.file_server.stop()
         if self.ota_server.running:
             self.ota_server.stop()
+        if self.device_status_server.running:
+            self.device_status_server.stop()
         
         self.root.destroy()
 
 
 if __name__ == "__main__":
+    # Check for single instance
+    instance_lock = SingleInstance()
+    
+    if not instance_lock.acquire():
+        # Another instance is already running
+        # Try to bring existing window to front (Windows only)
+        bring_existing_window_to_front()
+        
+        # Show error message
+        try:
+            # Create a minimal Tk root just for the message
+            temp_root = tk.Tk()
+            temp_root.withdraw()  # Hide the root window
+            messagebox.showwarning(
+                "Already Running",
+                "xGAME Server Manager is already running.\n\n"
+                "Check your system tray or taskbar for the existing instance."
+            )
+            temp_root.destroy()
+        except:
+            print("Error: xGAME Server Manager is already running.")
+        
+        sys.exit(1)
+    
+    # No other instance running, start the application
     root = tk.Tk()
     app = ServerManagerGUI(root)
     root.mainloop()

@@ -16,95 +16,30 @@ import time
 import subprocess
 import platform
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import urllib.parse
 
-# ============== Default Configuration ==============
-DEFAULT_CONFIG = {
-    'discovery': {
-        'port': 4210,
-        'auto_start': True
-    },
-    'file_server': {
-        'port': 5001,
-        'auto_start': True,
-        'sync_folder': './sync_files'
-    },
-    'ota_server': {
-        'port': 5005,
-        'auto_start': True,
-        'firmware_dir': './firmware',
-        'firmware_file': 'firmware.bin'
-    }
-}
+# ============== Configuration ==============
+DISCO_PORT = 4210
+TCP_PORT = 3232
+FILE_SERVER_PORT = 5001
+OTA_SERVER_PORT = 5005
 
-CONFIG_FILE = 'server_config.json'
-TCP_PORT = 3232  # Fixed TCP port for discovery
-
-
-# ============== Settings Manager ==============
-class SettingsManager:
-    def __init__(self):
-        self.config = self.load_config()
-    
-    def load_config(self):
-        """Load configuration from file or return defaults"""
-        try:
-            if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    loaded_config = json.load(f)
-                    # Merge with defaults to ensure all keys exist
-                    config = DEFAULT_CONFIG.copy()
-                    for section in config:
-                        if section in loaded_config:
-                            config[section].update(loaded_config[section])
-                    return config
-        except Exception as e:
-            print(f"Error loading config: {e}")
-        return DEFAULT_CONFIG.copy()
-    
-    def save_config(self):
-        """Save configuration to file"""
-        try:
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=4)
-            return True
-        except Exception as e:
-            print(f"Error saving config: {e}")
-            return False
-    
-    def get(self, section, key, default=None):
-        """Get a configuration value"""
-        try:
-            return self.config[section][key]
-        except KeyError:
-            return default
-    
-    def set(self, section, key, value):
-        """Set a configuration value"""
-        if section not in self.config:
-            self.config[section] = {}
-        self.config[section][key] = value
-        self.save_config()
+SYNC_FOLDER = './sync_files'
+FIRMWARE_DIR = './firmware'
+FIRMWARE_FILE = 'firmware.bin'
 
 # ============== Discovery Server ==============
 class DiscoveryServer:
-    def __init__(self, log_callback=None, settings=None):
+    def __init__(self, log_callback=None):
         self.log_callback = log_callback
-        self.settings = settings
         self.running = False
         self.threads = []
         self.sockets = []
-    
-    @property
-    def port(self):
-        if self.settings:
-            return self.settings.get('discovery', 'port', 4210)
-        return 4210
         
     def get_all_interfaces(self):
         """Get all available network interfaces with their IP addresses"""
@@ -136,10 +71,10 @@ class DiscoveryServer:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.settimeout(1.0)
-            sock.bind((interface_ip, self.port))
+            sock.bind((interface_ip, DISCO_PORT))
             self.sockets.append(sock)
             
-            self.log(f"Listening on {interface_name} ({interface_ip}:{self.port})", "SUCCESS")
+            self.log(f"Listening on {interface_name} ({interface_ip}:{DISCO_PORT})", "SUCCESS")
             
             while self.running:
                 try:
@@ -217,24 +152,12 @@ class DiscoveryServer:
 
 # ============== File Server ==============
 class FileServer:
-    def __init__(self, log_callback=None, settings=None):
+    def __init__(self, log_callback=None):
         self.log_callback = log_callback
-        self.settings = settings
         self.running = False
         self.server_thread = None
         self.app = None
-    
-    @property
-    def port(self):
-        if self.settings:
-            return self.settings.get('file_server', 'port', 5001)
-        return 5001
-    
-    @property
-    def sync_folder(self):
-        if self.settings:
-            return self.settings.get('file_server', 'sync_folder', './sync_files')
-        return './sync_files'
+        self.sync_folder = SYNC_FOLDER
         
     def log(self, message, level="INFO"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -356,8 +279,8 @@ class FileServer:
         try:
             from werkzeug.serving import make_server
             self.app = self.create_flask_app()
-            self.http_server = make_server('0.0.0.0', self.port, self.app, threaded=True)
-            self.log(f"File server started on port {self.port}", "SUCCESS")
+            self.http_server = make_server('0.0.0.0', FILE_SERVER_PORT, self.app, threaded=True)
+            self.log(f"File server started on port {FILE_SERVER_PORT}", "SUCCESS")
             self.http_server.serve_forever()
         except Exception as e:
             self.log(f"File server error: {e}", "ERROR")
@@ -370,7 +293,7 @@ class FileServer:
         
         self.init_sync_folder()
         self.running = True
-        self.log(f"Starting file server on port {self.port}...")
+        self.log(f"Starting file server on port {FILE_SERVER_PORT}...")
         self.log(f"Sync folder: {os.path.abspath(self.sync_folder)}", "INFO")
         
         files = self.get_file_list()
@@ -403,18 +326,6 @@ class OTAHandler(BaseHTTPRequestHandler):
     _cached_mtime = None
     _cache_lock = threading.Lock()
     
-    @property
-    def firmware_dir(self):
-        if self.server_instance:
-            return self.server_instance.firmware_dir
-        return './firmware'
-    
-    @property
-    def firmware_file(self):
-        if self.server_instance:
-            return self.server_instance.firmware_file
-        return 'firmware.bin'
-    
     def do_GET(self):
         try:
             parsed_path = urllib.parse.urlparse(self.path)
@@ -439,7 +350,7 @@ class OTAHandler(BaseHTTPRequestHandler):
     
     def handle_version_check(self):
         try:
-            firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
+            firmware_path = os.path.join(FIRMWARE_DIR, FIRMWARE_FILE)
             
             if not os.path.exists(firmware_path):
                 self.send_error(404, "Firmware not found")
@@ -450,7 +361,7 @@ class OTAHandler(BaseHTTPRequestHandler):
             response_data = {
                 "version": md5_hash,
                 "size": file_size,
-                "filename": self.firmware_file,
+                "filename": FIRMWARE_FILE,
                 "timestamp": int(time.time())
             }
             
@@ -468,7 +379,7 @@ class OTAHandler(BaseHTTPRequestHandler):
     
     def handle_firmware_download(self):
         try:
-            firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
+            firmware_path = os.path.join(FIRMWARE_DIR, FIRMWARE_FILE)
             
             if not os.path.exists(firmware_path):
                 self.send_error(404, "Firmware not found")
@@ -489,7 +400,7 @@ class OTAHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(content_length))
                 self.send_header("Content-Range", f"bytes {range_start}-{range_end}/{file_size}")
                 self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Content-Disposition", f"attachment; filename={self.firmware_file}")
+                self.send_header("Content-Disposition", f"attachment; filename={FIRMWARE_FILE}")
                 self.end_headers()
                 
                 with open(firmware_path, 'rb') as f:
@@ -509,7 +420,7 @@ class OTAHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "application/octet-stream")
                 self.send_header("Content-Length", str(file_size))
                 self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Content-Disposition", f"attachment; filename={self.firmware_file}")
+                self.send_header("Content-Disposition", f"attachment; filename={FIRMWARE_FILE}")
                 self.end_headers()
                 
                 with open(firmware_path, 'rb') as f:
@@ -519,7 +430,7 @@ class OTAHandler(BaseHTTPRequestHandler):
                             break
                         self.wfile.write(chunk)
                 
-                self.log_to_gui(f"Full firmware sent: {self.firmware_file} ({file_size} bytes)", "SUCCESS")
+                self.log_to_gui(f"Full firmware sent: {FIRMWARE_FILE} ({file_size} bytes)", "SUCCESS")
             
         except Exception as e:
             self.log_to_gui(f"Error sending firmware: {e}", "ERROR")
@@ -528,7 +439,7 @@ class OTAHandler(BaseHTTPRequestHandler):
     def handle_status(self):
         try:
             active_threads = threading.active_count()
-            firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
+            firmware_path = os.path.join(FIRMWARE_DIR, FIRMWARE_FILE)
             firmware_exists = os.path.exists(firmware_path)
             
             status_data = {
@@ -585,30 +496,12 @@ class ThreadedOTAServer(ThreadingHTTPServer):
 
 
 class OTAServer:
-    def __init__(self, log_callback=None, settings=None):
+    def __init__(self, log_callback=None):
         self.log_callback = log_callback
-        self.settings = settings
         self.running = False
         self.server_thread = None
         self.httpd = None
-    
-    @property
-    def port(self):
-        if self.settings:
-            return self.settings.get('ota_server', 'port', 5005)
-        return 5005
-    
-    @property
-    def firmware_dir(self):
-        if self.settings:
-            return self.settings.get('ota_server', 'firmware_dir', './firmware')
-        return './firmware'
-    
-    @property
-    def firmware_file(self):
-        if self.settings:
-            return self.settings.get('ota_server', 'firmware_file', 'firmware.bin')
-        return 'firmware.bin'
+        self.firmware_dir = FIRMWARE_DIR
         
     def log(self, message, level="INFO"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -626,8 +519,8 @@ class OTAServer:
     def run_server(self):
         try:
             OTAHandler.server_instance = self
-            self.httpd = ThreadedOTAServer(('', self.port), OTAHandler, max_connections=50)
-            self.log(f"OTA server started on port {self.port}", "SUCCESS")
+            self.httpd = ThreadedOTAServer(('', OTA_SERVER_PORT), OTAHandler, max_connections=50)
+            self.log(f"OTA server started on port {OTA_SERVER_PORT}", "SUCCESS")
             self.httpd.serve_forever()
         except Exception as e:
             self.log(f"OTA server error: {e}", "ERROR")
@@ -640,15 +533,15 @@ class OTAServer:
         
         self.init_firmware_dir()
         self.running = True
-        self.log(f"Starting OTA server on port {self.port}...")
+        self.log(f"Starting OTA server on port {OTA_SERVER_PORT}...")
         self.log(f"Firmware directory: {os.path.abspath(self.firmware_dir)}", "INFO")
         
-        firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
+        firmware_path = os.path.join(self.firmware_dir, FIRMWARE_FILE)
         if os.path.exists(firmware_path):
             file_size = os.path.getsize(firmware_path)
-            self.log(f"Firmware file found: {self.firmware_file} ({file_size} bytes)", "SUCCESS")
+            self.log(f"Firmware file found: {FIRMWARE_FILE} ({file_size} bytes)", "SUCCESS")
         else:
-            self.log(f"Warning: Firmware file not found: {self.firmware_file}", "WARNING")
+            self.log(f"Warning: Firmware file not found: {FIRMWARE_FILE}", "WARNING")
         
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
         self.server_thread.start()
@@ -678,13 +571,10 @@ class ServerManagerGUI:
         self.root.resizable(True, True)
         self.root.minsize(800, 600)
         
-        # Initialize settings manager
-        self.settings = SettingsManager()
-        
-        # Initialize servers with settings
-        self.disco_server = DiscoveryServer(log_callback=self.add_disco_log, settings=self.settings)
-        self.file_server = FileServer(log_callback=self.add_file_log, settings=self.settings)
-        self.ota_server = OTAServer(log_callback=self.add_ota_log, settings=self.settings)
+        # Initialize servers
+        self.disco_server = DiscoveryServer(log_callback=self.add_disco_log)
+        self.file_server = FileServer(log_callback=self.add_file_log)
+        self.ota_server = OTAServer(log_callback=self.add_ota_log)
         
         self.interfaces = []
         self.interface_vars = []
@@ -695,8 +585,8 @@ class ServerManagerGUI:
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        # Auto-start servers based on settings after a short delay
-        self.root.after(500, self.auto_start_servers)
+        # Auto-start all servers after a short delay
+        self.root.after(500, self.auto_start_all_servers)
     
     def create_widgets(self):
         # Main container
@@ -730,13 +620,9 @@ class ServerManagerGUI:
         self.ota_status_label = ttk.Label(header_frame, text="● Stopped", foreground="red")
         self.ota_status_label.grid(row=0, column=5, sticky=tk.W)
         
-        # Port info (will be updated dynamically)
-        self.port_info_label = ttk.Label(header_frame, 
-            text=f"Ports: Discovery={self.settings.get('discovery', 'port')}, "
-                 f"File={self.settings.get('file_server', 'port')}, "
-                 f"OTA={self.settings.get('ota_server', 'port')}",
-            font=('TkDefaultFont', 8))
-        self.port_info_label.grid(row=1, column=0, columnspan=6, sticky=tk.W, pady=(5, 0))
+        # Port info
+        ttk.Label(header_frame, text=f"Ports: Discovery={DISCO_PORT}, File={FILE_SERVER_PORT}, OTA={OTA_SERVER_PORT}",
+                  font=('TkDefaultFont', 8)).grid(row=1, column=0, columnspan=6, sticky=tk.W, pady=(5, 0))
         
         # ===== Notebook with Tabs =====
         self.notebook = ttk.Notebook(main_frame)
@@ -746,7 +632,6 @@ class ServerManagerGUI:
         self.create_discovery_tab()
         self.create_file_server_tab()
         self.create_ota_server_tab()
-        self.create_settings_tab()
     
     def create_discovery_tab(self):
         """Create the Discovery Server tab"""
@@ -819,11 +704,10 @@ class ServerManagerGUI:
         info_frame.columnconfigure(1, weight=1)
         
         ttk.Label(info_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.file_port_display = ttk.Label(info_frame, text=str(self.settings.get('file_server', 'port')), font=('TkDefaultFont', 9, 'bold'))
-        self.file_port_display.grid(row=0, column=1, sticky=tk.W)
+        ttk.Label(info_frame, text=str(FILE_SERVER_PORT), font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=1, sticky=tk.W)
         
         ttk.Label(info_frame, text="Sync Folder:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
-        self.sync_folder_label = ttk.Label(info_frame, text=os.path.abspath(self.settings.get('file_server', 'sync_folder')), font=('TkDefaultFont', 9, 'bold'))
+        self.sync_folder_label = ttk.Label(info_frame, text=os.path.abspath(SYNC_FOLDER), font=('TkDefaultFont', 9, 'bold'))
         self.sync_folder_label.grid(row=1, column=1, sticky=tk.W)
         
         ttk.Label(info_frame, text="Files:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
@@ -874,11 +758,10 @@ class ServerManagerGUI:
         info_frame.columnconfigure(1, weight=1)
         
         ttk.Label(info_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.ota_port_display = ttk.Label(info_frame, text=str(self.settings.get('ota_server', 'port')), font=('TkDefaultFont', 9, 'bold'))
-        self.ota_port_display.grid(row=0, column=1, sticky=tk.W)
+        ttk.Label(info_frame, text=str(OTA_SERVER_PORT), font=('TkDefaultFont', 9, 'bold')).grid(row=0, column=1, sticky=tk.W)
         
         ttk.Label(info_frame, text="Firmware Folder:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
-        self.firmware_folder_label = ttk.Label(info_frame, text=os.path.abspath(self.settings.get('ota_server', 'firmware_dir')), font=('TkDefaultFont', 9, 'bold'))
+        self.firmware_folder_label = ttk.Label(info_frame, text=os.path.abspath(FIRMWARE_DIR), font=('TkDefaultFont', 9, 'bold'))
         self.firmware_folder_label.grid(row=1, column=1, sticky=tk.W)
         
         ttk.Label(info_frame, text="Firmware:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
@@ -915,151 +798,7 @@ class ServerManagerGUI:
         self.ota_log_text.tag_config("WARNING", foreground="orange")
         self.ota_log_text.tag_config("ERROR", foreground="red")
     
-    def create_settings_tab(self):
-        """Create the Settings tab"""
-        tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="⚙ Settings")
-        
-        tab.columnconfigure(0, weight=1)
-        
-        # ===== Discovery Server Settings =====
-        disco_frame = ttk.LabelFrame(tab, text="Discovery Server", padding="10")
-        disco_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        disco_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(disco_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.disco_port_var = tk.StringVar(value=str(self.settings.get('discovery', 'port')))
-        disco_port_entry = ttk.Entry(disco_frame, textvariable=self.disco_port_var, width=10)
-        disco_port_entry.grid(row=0, column=1, sticky=tk.W)
-        
-        self.disco_autostart_var = tk.BooleanVar(value=self.settings.get('discovery', 'auto_start'))
-        ttk.Checkbutton(disco_frame, text="Run on app start", variable=self.disco_autostart_var).grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
-        
-        # ===== File Server Settings =====
-        file_frame = ttk.LabelFrame(tab, text="File Server", padding="10")
-        file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        file_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(file_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.file_port_var = tk.StringVar(value=str(self.settings.get('file_server', 'port')))
-        file_port_entry = ttk.Entry(file_frame, textvariable=self.file_port_var, width=10)
-        file_port_entry.grid(row=0, column=1, sticky=tk.W)
-        
-        ttk.Label(file_frame, text="Sync Folder:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.file_sync_folder_var = tk.StringVar(value=self.settings.get('file_server', 'sync_folder'))
-        file_folder_entry = ttk.Entry(file_frame, textvariable=self.file_sync_folder_var, width=40)
-        file_folder_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(5, 0))
-        
-        self.file_autostart_var = tk.BooleanVar(value=self.settings.get('file_server', 'auto_start'))
-        ttk.Checkbutton(file_frame, text="Run on app start", variable=self.file_autostart_var).grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
-        
-        # ===== OTA Server Settings =====
-        ota_frame = ttk.LabelFrame(tab, text="OTA Server", padding="10")
-        ota_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        ota_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(ota_frame, text="Port:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.ota_port_var = tk.StringVar(value=str(self.settings.get('ota_server', 'port')))
-        ota_port_entry = ttk.Entry(ota_frame, textvariable=self.ota_port_var, width=10)
-        ota_port_entry.grid(row=0, column=1, sticky=tk.W)
-        
-        ttk.Label(ota_frame, text="Firmware Folder:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.ota_firmware_dir_var = tk.StringVar(value=self.settings.get('ota_server', 'firmware_dir'))
-        ota_folder_entry = ttk.Entry(ota_frame, textvariable=self.ota_firmware_dir_var, width=40)
-        ota_folder_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(5, 0))
-        
-        ttk.Label(ota_frame, text="Firmware File:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.ota_firmware_file_var = tk.StringVar(value=self.settings.get('ota_server', 'firmware_file'))
-        ota_file_entry = ttk.Entry(ota_frame, textvariable=self.ota_firmware_file_var, width=40)
-        ota_file_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=(5, 0))
-        
-        self.ota_autostart_var = tk.BooleanVar(value=self.settings.get('ota_server', 'auto_start'))
-        ttk.Checkbutton(ota_frame, text="Run on app start", variable=self.ota_autostart_var).grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(5, 0))
-        
-        # ===== Save Button =====
-        button_frame = ttk.Frame(tab)
-        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        ttk.Button(button_frame, text="Save Settings", command=self.save_settings).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(button_frame, text="Reset to Defaults", command=self.reset_settings).pack(side=tk.LEFT)
-        
-        # Note
-        note_label = ttk.Label(tab, text="Note: Port changes require server restart to take effect.", 
-                              font=('TkDefaultFont', 8), foreground="gray")
-        note_label.grid(row=4, column=0, sticky=tk.W, pady=(10, 0))
-    
-    def save_settings(self):
-        """Save settings from GUI to config file"""
-        try:
-            # Validate ports
-            disco_port = int(self.disco_port_var.get())
-            file_port = int(self.file_port_var.get())
-            ota_port = int(self.ota_port_var.get())
-            
-            if not (1 <= disco_port <= 65535 and 1 <= file_port <= 65535 and 1 <= ota_port <= 65535):
-                raise ValueError("Port must be between 1 and 65535")
-            
-            # Save discovery settings
-            self.settings.set('discovery', 'port', disco_port)
-            self.settings.set('discovery', 'auto_start', self.disco_autostart_var.get())
-            
-            # Save file server settings
-            self.settings.set('file_server', 'port', file_port)
-            self.settings.set('file_server', 'sync_folder', self.file_sync_folder_var.get())
-            self.settings.set('file_server', 'auto_start', self.file_autostart_var.get())
-            
-            # Save OTA server settings
-            self.settings.set('ota_server', 'port', ota_port)
-            self.settings.set('ota_server', 'firmware_dir', self.ota_firmware_dir_var.get())
-            self.settings.set('ota_server', 'firmware_file', self.ota_firmware_file_var.get())
-            self.settings.set('ota_server', 'auto_start', self.ota_autostart_var.get())
-            
-            # Update displayed values
-            self.update_displayed_settings()
-            
-            messagebox.showinfo("Settings", "Settings saved successfully!\n\nRestart servers for port changes to take effect.")
-            
-        except ValueError as e:
-            messagebox.showerror("Error", f"Invalid port number: {e}")
-    
-    def reset_settings(self):
-        """Reset settings to defaults"""
-        if messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to defaults?"):
-            self.settings.config = DEFAULT_CONFIG.copy()
-            self.settings.save_config()
-            
-            # Update GUI
-            self.disco_port_var.set(str(DEFAULT_CONFIG['discovery']['port']))
-            self.disco_autostart_var.set(DEFAULT_CONFIG['discovery']['auto_start'])
-            
-            self.file_port_var.set(str(DEFAULT_CONFIG['file_server']['port']))
-            self.file_sync_folder_var.set(DEFAULT_CONFIG['file_server']['sync_folder'])
-            self.file_autostart_var.set(DEFAULT_CONFIG['file_server']['auto_start'])
-            
-            self.ota_port_var.set(str(DEFAULT_CONFIG['ota_server']['port']))
-            self.ota_firmware_dir_var.set(DEFAULT_CONFIG['ota_server']['firmware_dir'])
-            self.ota_firmware_file_var.set(DEFAULT_CONFIG['ota_server']['firmware_file'])
-            self.ota_autostart_var.set(DEFAULT_CONFIG['ota_server']['auto_start'])
-            
-            self.update_displayed_settings()
-            messagebox.showinfo("Settings", "Settings reset to defaults.")
-    
-    def update_displayed_settings(self):
-        """Update displayed port and folder information"""
-        # Update header port info
-        self.port_info_label.config(
-            text=f"Ports: Discovery={self.settings.get('discovery', 'port')}, "
-                 f"File={self.settings.get('file_server', 'port')}, "
-                 f"OTA={self.settings.get('ota_server', 'port')}"
-        )
-        
-        # Update file server tab
-        self.file_port_display.config(text=str(self.settings.get('file_server', 'port')))
-        self.sync_folder_label.config(text=os.path.abspath(self.settings.get('file_server', 'sync_folder')))
-        
-        # Update OTA server tab
-        self.ota_port_display.config(text=str(self.settings.get('ota_server', 'port')))
-        self.firmware_folder_label.config(text=os.path.abspath(self.settings.get('ota_server', 'firmware_dir')))
+    # ===== Discovery Server Methods =====
     def refresh_interfaces(self):
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
@@ -1146,7 +885,7 @@ class ServerManagerGUI:
         self.file_count_label.config(text=str(len(files)))
     
     def open_sync_folder(self):
-        folder = os.path.abspath(self.settings.get('file_server', 'sync_folder'))
+        folder = os.path.abspath(SYNC_FOLDER)
         if not os.path.exists(folder):
             os.makedirs(folder)
         self.open_folder(folder)
@@ -1177,17 +916,15 @@ class ServerManagerGUI:
         self.ota_log_text.config(state='disabled')
     
     def refresh_firmware_status(self):
-        firmware_dir = self.settings.get('ota_server', 'firmware_dir')
-        firmware_file = self.settings.get('ota_server', 'firmware_file')
-        firmware_path = os.path.join(firmware_dir, firmware_file)
+        firmware_path = os.path.join(FIRMWARE_DIR, FIRMWARE_FILE)
         if os.path.exists(firmware_path):
             size = os.path.getsize(firmware_path)
-            self.firmware_status_label.config(text=f"{firmware_file} ({size:,} bytes)", foreground="green")
+            self.firmware_status_label.config(text=f"{FIRMWARE_FILE} ({size:,} bytes)", foreground="green")
         else:
             self.firmware_status_label.config(text="Not found", foreground="red")
     
     def open_firmware_folder(self):
-        folder = os.path.abspath(self.settings.get('ota_server', 'firmware_dir'))
+        folder = os.path.abspath(FIRMWARE_DIR)
         if not os.path.exists(folder):
             os.makedirs(folder)
         self.open_folder(folder)
@@ -1205,30 +942,22 @@ class ServerManagerGUI:
         except Exception as e:
             self.add_file_log(f"[{datetime.now().strftime('%H:%M:%S')}] [ERROR] Could not open folder: {e}", "ERROR")
     
-    def auto_start_servers(self):
-        """Auto-start servers based on settings"""
-        self.add_disco_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Checking auto-start settings...", "INFO")
+    def auto_start_all_servers(self):
+        """Auto-start all servers on application launch"""
+        self.add_disco_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting all servers...", "INFO")
         
-        # Start Discovery Server if enabled
-        if self.settings.get('discovery', 'auto_start') and self.interfaces:
-            self.add_disco_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting Discovery Server...", "INFO")
+        # Start Discovery Server
+        if self.interfaces:
             self.start_disco_server()
         
-        # Start File Server if enabled
-        if self.settings.get('file_server', 'auto_start'):
-            self.add_file_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting File Server...", "INFO")
-            self.start_file_server()
+        # Start File Server
+        self.start_file_server()
         
-        # Start OTA Server if enabled
-        if self.settings.get('ota_server', 'auto_start'):
-            self.add_ota_log(f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Auto-starting OTA Server...", "INFO")
-            self.start_ota_server()
+        # Start OTA Server
+        self.start_ota_server()
     
     def on_closing(self):
         """Handle window close event"""
-        # Save settings before closing
-        self.settings.save_config()
-        
         # Stop all servers
         if self.disco_server.running:
             self.disco_server.stop()

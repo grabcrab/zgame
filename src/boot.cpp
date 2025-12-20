@@ -11,6 +11,8 @@
 #include "xgConfig.h"
 #include "patterns.h"
 #include "wifiUtils.h"
+#include "gameEngine.h"
+#include "statusClient.h"
 
 static void boardInit(void)
 {
@@ -146,7 +148,8 @@ static void discoBoot(void)
 {
     IPAddress server;
     int a = 0;
-    tftPrintText("DISCO");
+    const int maxAttempts = 10;
+    tftPrintText("DISCO");    
     delay(100);
     while(true)
     {
@@ -154,7 +157,7 @@ static void discoBoot(void)
         a++;
         if (!res)
         {
-            tftPrintText("DISCO " + String(a));
+            tftPrintText("DISCO ERR " + String(a));
             checkSleep();
         }
         else
@@ -164,6 +167,13 @@ static void discoBoot(void)
             Serial.println(serverIpStr);
             ConfigAPI::setDiscoServer(serverIpStr);
             break;
+        }
+        if (a > maxAttempts)
+        {
+            tftPrintText("DISCO ERROR SLEEP");    
+            Serial.println("DISCO ERROR SLEEP");
+            delay(3000);
+            boardStartSleep();
         }
     }
     checkSleep(true);
@@ -188,6 +198,21 @@ static void otaBoot(void)
             tftPrintText("OTA " + String(a));
         }
         checkSleep();
+    }
+    checkSleep(true);
+}
+
+static void statusBoot(void)
+{
+    int a = 0;    
+    tftPrintText("STATUS CLIENT");
+    delay(100);    
+
+    while (!statusClientInit(ConfigAPI::getDeviceName().c_str(), ConfigAPI::getDiscoServer().c_str()))
+    {                
+        checkSleep();
+        a++;
+        tftPrintText("STATUS CLIENT ERR " + String(a));
     }
     checkSleep(true);
 }
@@ -299,16 +324,21 @@ bool initOnBoot(void)
     checkSleep(true);
     accelBoot();    
     configBoot();
-    netBoot();
+    netBoot();    
     discoBoot();
+    statusBoot();    
+    statusClientSetGameStatus("OTA CHECK");
     otaBoot();
-    fileSyncBoot();        
+    statusClientSetGameStatus("FILE SYNC");
+    fileSyncBoot();            
     //valPlayPattern(WHILE_BOOT_PATTERN);    
     radioBoot();
     valPlayerBoot();  
     valPlayPattern(ON_BOOT_PATTERN);
+    statusClientSetGameStatus("READY");
     bazaLogo();    
     //tftPrintText("READY!");    
+    statusClientSetGameStatus("STARTED");
 
     return true;
 }

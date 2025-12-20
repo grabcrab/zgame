@@ -13,7 +13,7 @@
 #define PIN_LCD_D6                   47
 #define PIN_LCD_D7                   48
 
-#define PIN_POWER_ON                 15
+#define PIN_POWER_ON                 12//15
 
 #define PIN_LCD_RES                  5
 #define PIN_LCD_CS                   6

@@ -5,14 +5,14 @@
 
 void boardPowerOn(void)
 {
-    pinMode(PIN_POWER, OUTPUT);
-    digitalWrite(PIN_POWER, HIGH);
+    pinMode(PIN_POWER_ON, OUTPUT);
+    digitalWrite(PIN_POWER_ON, HIGH);
 }
 
 void boardPowerOff(void)
 {
-    pinMode(PIN_POWER, OUTPUT);
-    digitalWrite(PIN_POWER, LOW);
+    pinMode(PIN_POWER_ON, OUTPUT);
+    digitalWrite(PIN_POWER_ON, LOW);
 }
 
 uint16_t boardGetVcc(void)

@@ -10,6 +10,7 @@ import json
 import hashlib
 import os
 import sys
+import atexit
 import psutil
 import threading
 import time
@@ -44,6 +45,61 @@ DEFAULT_CONFIG = {
 
 CONFIG_FILE = 'server_config.json'
 TCP_PORT = 3232  # Fixed TCP port for discovery
+LOCK_PORT = 47200  # Port used for single instance lock
+
+
+# ============== Single Instance Lock ==============
+class SingleInstance:
+    """
+    Ensures only one instance of the application runs at a time.
+    Uses a socket-based lock which is automatically released when the process exits.
+    """
+    def __init__(self, port=LOCK_PORT):
+        self.port = port
+        self.lock_socket = None
+    
+    def acquire(self):
+        """
+        Try to acquire the single instance lock.
+        Returns True if successful, False if another instance is running.
+        """
+        try:
+            self.lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+            self.lock_socket.bind(('127.0.0.1', self.port))
+            self.lock_socket.listen(1)
+            # Register cleanup on exit
+            atexit.register(self.release)
+            return True
+        except socket.error:
+            # Port is already in use - another instance is running
+            return False
+    
+    def release(self):
+        """Release the single instance lock."""
+        if self.lock_socket:
+            try:
+                self.lock_socket.close()
+            except:
+                pass
+            self.lock_socket = None
+
+
+def bring_existing_window_to_front():
+    """
+    Attempt to bring the existing instance window to the front.
+    Platform-specific implementation.
+    """
+    if platform.system() == 'Windows':
+        try:
+            import ctypes
+            # Find window by title
+            hwnd = ctypes.windll.user32.FindWindowW(None, "xGAME Server Manager")
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except:
+            pass
 
 
 # ============== Settings Manager ==============
@@ -1241,6 +1297,31 @@ class ServerManagerGUI:
 
 
 if __name__ == "__main__":
+    # Check for single instance
+    instance_lock = SingleInstance()
+    
+    if not instance_lock.acquire():
+        # Another instance is already running
+        # Try to bring existing window to front (Windows only)
+        bring_existing_window_to_front()
+        
+        # Show error message
+        try:
+            # Create a minimal Tk root just for the message
+            temp_root = tk.Tk()
+            temp_root.withdraw()  # Hide the root window
+            messagebox.showwarning(
+                "Already Running",
+                "xGAME Server Manager is already running.\n\n"
+                "Check your system tray or taskbar for the existing instance."
+            )
+            temp_root.destroy()
+        except:
+            print("Error: xGAME Server Manager is already running.")
+        
+        sys.exit(1)
+    
+    # No other instance running, start the application
     root = tk.Tk()
     app = ServerManagerGUI(root)
     root.mainloop()

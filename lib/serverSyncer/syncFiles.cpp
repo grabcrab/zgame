@@ -100,8 +100,8 @@ bool uploadFile(const char *serverAddress, const char *filename)
 }
 
 // Download file from server with progress tracking
-bool downloadFile(const char *serverAddress, const char *filename, SyncProgress &syncProgress)
-{
+bool downloadFile(const char *serverAddress, const char *filename, SyncProgress &syncProgress, const size_t bufferSize, uint8_t *buffer)
+{    
     HTTPClient http;
     http.begin(String(serverAddress) + "/download?file=" + String(filename));
     http.setTimeout(30000);        // 30 second timeout for large files
@@ -144,8 +144,6 @@ bool downloadFile(const char *serverAddress, const char *filename, SyncProgress 
         }
 
         WiFiClient *stream = http.getStreamPtr();
-        const size_t bufferSize = 512; // Smaller buffer for stability
-        uint8_t buffer[bufferSize];
         int totalDownloaded = 0;
         bool shouldContinue = true;
         unsigned long lastProgressTime = millis();
@@ -207,7 +205,7 @@ bool downloadFile(const char *serverAddress, const char *filename, SyncProgress 
                 else
                 {
                     // No bytes read, wait a bit
-                    delay(10);
+                    delay(1);
                 }
             }
             else
@@ -219,7 +217,7 @@ bool downloadFile(const char *serverAddress, const char *filename, SyncProgress 
                 }
 
                 // Wait for more data
-                delay(10);
+                delay(1);
 
                 // Timeout check (30 seconds without data)
                 if (millis() - lastProgressTime > 30000)
@@ -470,9 +468,12 @@ bool syncFiles(const char *serverAddress, ProgressCallback callback)
 
         if (localMap.find(filename) == localMap.end())
         {
-            // File exists on server but not locally - download
-            Serial.println("Downloading new file: " + filename);
-            shouldContinue = downloadFile(serverAddress, filename.c_str(), syncProgress);
+            // File exists on server but not locally - download            
+            size_t bufferSize = ESP.getMaxAllocHeap() / 2;
+            Serial.printf(">>> Downloading new file [%s] [%u bytes buf]\r\n", filename.c_str(), bufferSize);
+            uint8_t *buffer = new uint8_t[bufferSize];
+            shouldContinue = downloadFile(serverAddress, filename.c_str(), syncProgress, bufferSize, buffer);
+            delete buffer;
         }
         else
         {

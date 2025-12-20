@@ -522,6 +522,11 @@ namespace ConfigAPI
         discoServer = dS;
     }
 
+    String getDiscoServer(void)
+    {
+        return discoServer;
+    }
+
     String replaceUrlAddress(String fullAddress)
     {
         String newAddress = discoServer;

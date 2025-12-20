@@ -13,8 +13,6 @@ import time
 import threading
 import logging
 import socket
-import sys
-import atexit
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 
@@ -28,48 +26,9 @@ logger = logging.getLogger(__name__)
 # Configuration
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 5000
-LOCK_PORT = 47201  # Port used for single instance lock
 DEFAULT_HUMAN_PERCENTAGE = 50
 DEFAULT_GAME_TIMEOUT = 30
 DEFAULT_GAME_DURATION = 15
-
-
-# ============== Single Instance Lock ==============
-class SingleInstance:
-    """
-    Ensures only one instance of the application runs at a time.
-    Uses a socket-based lock which is automatically released when the process exits.
-    """
-    def __init__(self, port=LOCK_PORT):
-        self.port = port
-        self.lock_socket = None
-    
-    def acquire(self):
-        """
-        Try to acquire the single instance lock.
-        Returns True if successful, False if another instance is running.
-        """
-        try:
-            self.lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.lock_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
-            self.lock_socket.bind(('127.0.0.1', self.port))
-            self.lock_socket.listen(1)
-            # Register cleanup on exit
-            atexit.register(self.release)
-            return True
-        except socket.error:
-            # Port is already in use - another instance is running
-            return False
-    
-    def release(self):
-        """Release the single instance lock."""
-        if self.lock_socket:
-            try:
-                self.lock_socket.close()
-            except:
-                pass
-            self.lock_socket = None
-
 
 # Flask app for API
 app = Flask(__name__)
@@ -681,26 +640,6 @@ class ZombieGameApp:
 
 def main():
     """Main application entry point"""
-    # Check for single instance
-    instance_lock = SingleInstance()
-    
-    if not instance_lock.acquire():
-        # Another instance is already running
-        # Show error message
-        try:
-            temp_root = tk.Tk()
-            temp_root.withdraw()
-            messagebox.showwarning(
-                "Already Running",
-                "Zombie Game Server is already running.\n\n"
-                "Check your system tray or taskbar for the existing instance."
-            )
-            temp_root.destroy()
-        except:
-            print("Error: Zombie Game Server is already running.")
-        
-        sys.exit(1)
-    
     # Start Flask server in background
     flask_thread = FlaskThread(SERVER_HOST, SERVER_PORT)
     flask_thread.start()

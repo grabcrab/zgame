@@ -124,6 +124,7 @@ tGameRole waitGame(uint16_t &preTimeoutMs, uint32_t toMs)
     {
         req.print(serverURL);
     }
+    
     while(millis() - startMs < toMs)
     {
         tGameApiResponse resp = sendDeviceData(req, serverURL);

@@ -51,7 +51,7 @@ bool testGameZombie(void);
 bool testGameBase(void);
 bool testRssiMonitor(void);
 
-void gameOnCritical(String errS);
+void gameOnCritical(String errS, bool noVal);
 void gameWait(void);
 void startCommunicator(void);
 bool doGameStep(void);

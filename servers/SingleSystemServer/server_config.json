@@ -13,5 +13,10 @@
         "auto_start": false,
         "firmware_dir": "./firmware",
         "firmware_file": "firmware.bin"
+    },
+    "device_status_server": {
+        "port": 5004,
+        "auto_start": true,
+        "device_timeout": 30
     }
 }

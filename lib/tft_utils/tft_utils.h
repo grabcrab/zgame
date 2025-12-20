@@ -66,11 +66,13 @@ void zombiPreWaitPicture(void);
 void humanPreWaitPicture(void);
 void basePreWaitPicture(void);
 void gameOverPicture(void);
-void gameCriticalErrorPicture(void);
+void gameCriticalErrorPicture(String msgS);
 
 void tftGameScreenBase(int32_t topVal, int32_t botVal, uint32_t secLeft);
 void tftGameScreenHuman(int32_t topVal, int32_t botVal, uint32_t secLeft);
 void tftGameScreenZombie(int32_t topVal, int32_t botVal, uint32_t secLeft);
 void tftGameScreenTest(void);
+
+void tftGameScreenRaw(String fName, uint16_t txtColor, String str1, String str2, String secStr);
 
 #endif //__TFT_UTILS_H__

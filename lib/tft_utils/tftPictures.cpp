@@ -31,7 +31,7 @@ void gameOverPicture(void)
     tftDrawBmp("/xgameover.bmp", 0, 0, 536, 240);    
 }
 
-void gameCriticalErrorPicture(void)
+void gameCriticalErrorPicture(String msgS)
 {
-    tftDrawBmp("/xerror.bmp", 0, 0, 536, 240);    
+    tftDrawBmp("/xerror.bmp", 0, 0, 536, 240);        
 }

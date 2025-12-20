@@ -12,12 +12,15 @@ static uint32_t lastBaseStartedMs = 0;
 static uint32_t gameDurationS = 180;
 static bool inTheBase = 0;
 
-void gameOnCritical(String errS)
+void gameOnCritical(String errS, bool noVal)
 {
     //SLEEP HANDLING!!!
     int waitSec = 5;
-    valPlayPattern(ERROR_PATTERN);
-    gameCriticalErrorPicture();
+    if (!noVal)
+    {
+        valPlayPattern(ERROR_PATTERN);    
+    }
+    gameCriticalErrorPicture(errS);
     while(waitSec)
     {
         Serial.printf("!!! GAME ERROR: [%s] [%d sec to reboot]\r\n", errS.c_str(), waitSec);        
@@ -101,7 +104,7 @@ static void preGame(tGameRole role, uint16_t preTimeoutMs)
             rssiMonitorPreGame();
         return;
         default:
-            gameOnCritical("ERR_ROLE");
+            gameOnCritical("ERR_ROLE", false);
         break;
     }
 }
@@ -113,7 +116,6 @@ void gameWait(void)
     gameWaitLogo();
     tGameRole role = waitGame(preTimeoutMs);
     preGame(role, preTimeoutMs);
-
 }
 
 void gamePrintStep(tGameRole deviceRole, int zCount, int hCount, int bCount, int healPoints, int hitPoints, int healthPoints, bool isBase)

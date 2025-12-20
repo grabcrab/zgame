@@ -146,6 +146,7 @@ namespace ConfigAPI
     bool isInitialized();
 
     void setDiscoServer(String dS);
+    String getDiscoServer(void);
 
     String getDeviceName();
     String getDeviceRole();
