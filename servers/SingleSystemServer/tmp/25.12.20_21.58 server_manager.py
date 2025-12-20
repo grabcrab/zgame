@@ -501,7 +501,6 @@ class OTAHandler(BaseHTTPRequestHandler):
     def handle_version_check(self):
         try:
             firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
-            versioning_path = os.path.join(self.firmware_dir, "versioning")
             
             if not os.path.exists(firmware_path):
                 self.send_error(404, "Firmware not found")
@@ -509,20 +508,8 @@ class OTAHandler(BaseHTTPRequestHandler):
             
             md5_hash, file_size = self.get_cached_firmware_info(firmware_path)
             
-            # Read version number from versioning file
-            firmware_version = "0"
-            if os.path.exists(versioning_path):
-                try:
-                    with open(versioning_path, 'r') as f:
-                        firmware_version = f.read().strip()
-                except Exception as e:
-                    self.log_to_gui(f"Warning: Could not read versioning file: {e}", "WARNING")
-            else:
-                self.log_to_gui("Warning: versioning file not found, using version 0", "WARNING")
-            
             response_data = {
-                "version": firmware_version,
-                "md5": md5_hash,
+                "version": md5_hash,
                 "size": file_size,
                 "filename": self.firmware_file,
                 "timestamp": int(time.time())
@@ -534,7 +521,7 @@ class OTAHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(response_data).encode())
             
-            self.log_to_gui(f"Version check: Version={firmware_version}, MD5={md5_hash[:16]}..., Size={file_size}", "INFO")
+            self.log_to_gui(f"Version check: MD5={md5_hash[:16]}..., Size={file_size}", "INFO")
             
         except Exception as e:
             self.log_to_gui(f"Error in version check: {e}", "ERROR")
@@ -603,7 +590,6 @@ class OTAHandler(BaseHTTPRequestHandler):
         try:
             active_threads = threading.active_count()
             firmware_path = os.path.join(self.firmware_dir, self.firmware_file)
-            versioning_path = os.path.join(self.firmware_dir, "versioning")
             firmware_exists = os.path.exists(firmware_path)
             
             status_data = {
@@ -617,16 +603,6 @@ class OTAHandler(BaseHTTPRequestHandler):
                 md5_hash, file_size = self.get_cached_firmware_info(firmware_path)
                 status_data["firmware_md5"] = md5_hash
                 status_data["firmware_size"] = file_size
-                
-                # Read version number from versioning file
-                if os.path.exists(versioning_path):
-                    try:
-                        with open(versioning_path, 'r') as f:
-                            status_data["firmware_version"] = f.read().strip()
-                    except:
-                        status_data["firmware_version"] = "0"
-                else:
-                    status_data["firmware_version"] = "0"
             
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -1020,7 +996,6 @@ class ServerManagerGUI:
         
         self.create_widgets()
         self.refresh_interfaces()
-        self.refresh_firmware_status()  # Initial firmware status check
         
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -1076,10 +1051,6 @@ class ServerManagerGUI:
         self.port_info_label.grid(row=1, column=0, columnspan=8, sticky=tk.W, pady=(5, 0))
         
         # ===== Notebook with Tabs =====
-        # Configure custom style for notebook tabs
-        style = ttk.Style()
-        style.configure('TNotebook.Tab', padding=[15, 8], font=('TkDefaultFont', 10, 'bold'))
-        
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
@@ -1093,7 +1064,7 @@ class ServerManagerGUI:
     def create_discovery_tab(self):
         """Create the Discovery Server tab"""
         tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="  Discovery  ")
+        self.notebook.add(tab, text="Discovery Server")
         
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
@@ -1150,7 +1121,7 @@ class ServerManagerGUI:
     def create_file_server_tab(self):
         """Create the File Server tab"""
         tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="  File Server  ")
+        self.notebook.add(tab, text="File Server")
         
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
@@ -1205,7 +1176,7 @@ class ServerManagerGUI:
     def create_ota_server_tab(self):
         """Create the OTA Server tab"""
         tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="  OTA Server  ")
+        self.notebook.add(tab, text="OTA Server")
         
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(2, weight=1)
@@ -1226,10 +1197,6 @@ class ServerManagerGUI:
         ttk.Label(info_frame, text="Firmware:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
         self.firmware_status_label = ttk.Label(info_frame, text="Not found", foreground="red")
         self.firmware_status_label.grid(row=2, column=1, sticky=tk.W)
-        
-        ttk.Label(info_frame, text="FW Version:").grid(row=3, column=0, sticky=tk.W, padx=(0, 10))
-        self.firmware_version_label = ttk.Label(info_frame, text="Not found", foreground="red")
-        self.firmware_version_label.grid(row=3, column=1, sticky=tk.W)
         
         # Control Buttons
         control_frame = ttk.Frame(tab)
@@ -1264,7 +1231,7 @@ class ServerManagerGUI:
     def create_device_status_tab(self):
         """Create the Device Status tab"""
         tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="  Devices  ")
+        self.notebook.add(tab, text="Device Status")
         
         tab.columnconfigure(0, weight=1)
         tab.rowconfigure(1, weight=1)
@@ -1365,7 +1332,7 @@ class ServerManagerGUI:
     def create_settings_tab(self):
         """Create the Settings tab"""
         tab = ttk.Frame(self.notebook, padding="10")
-        self.notebook.add(tab, text="  ⚙ Settings  ")
+        self.notebook.add(tab, text="⚙ Settings")
         
         tab.columnconfigure(0, weight=1)
         
@@ -1634,25 +1601,6 @@ class ServerManagerGUI:
     
     # ===== OTA Server Methods =====
     def start_ota_server(self):
-        # Check if firmware and versioning files exist before starting
-        firmware_dir = self.settings.get('ota_server', 'firmware_dir')
-        firmware_file = self.settings.get('ota_server', 'firmware_file')
-        firmware_path = os.path.join(firmware_dir, firmware_file)
-        versioning_path = os.path.join(firmware_dir, "versioning")
-        
-        missing_files = []
-        if not os.path.exists(firmware_path):
-            missing_files.append(f"Firmware file ({firmware_file})")
-        if not os.path.exists(versioning_path):
-            missing_files.append("Versioning file")
-        
-        if missing_files:
-            error_msg = "Cannot start OTA server. Missing files:\n- " + "\n- ".join(missing_files)
-            self.add_ota_log(f"[{datetime.now().strftime('%H:%M:%S')}] [ERROR] {error_msg}", "ERROR")
-            messagebox.showerror("OTA Server Error", error_msg + f"\n\nPlease add the missing files to:\n{os.path.abspath(firmware_dir)}")
-            self.refresh_firmware_status()
-            return
-        
         self.ota_server.start()
         self.ota_start_btn.config(state='disabled')
         self.ota_stop_btn.config(state='normal')
@@ -1680,25 +1628,11 @@ class ServerManagerGUI:
         firmware_dir = self.settings.get('ota_server', 'firmware_dir')
         firmware_file = self.settings.get('ota_server', 'firmware_file')
         firmware_path = os.path.join(firmware_dir, firmware_file)
-        versioning_path = os.path.join(firmware_dir, "versioning")
-        
-        # Check firmware file
         if os.path.exists(firmware_path):
             size = os.path.getsize(firmware_path)
             self.firmware_status_label.config(text=f"{firmware_file} ({size:,} bytes)", foreground="green")
         else:
             self.firmware_status_label.config(text="Not found", foreground="red")
-        
-        # Check versioning file
-        if os.path.exists(versioning_path):
-            try:
-                with open(versioning_path, 'r') as f:
-                    version = f.read().strip()
-                self.firmware_version_label.config(text=version, foreground="green", font=('TkDefaultFont', 9, 'bold'))
-            except Exception as e:
-                self.firmware_version_label.config(text=f"Error reading: {e}", foreground="red")
-        else:
-            self.firmware_version_label.config(text="Not found (versioning file missing)", foreground="red")
     
     def open_firmware_folder(self):
         folder = os.path.abspath(self.settings.get('ota_server', 'firmware_dir'))

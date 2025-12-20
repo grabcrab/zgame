@@ -24,4 +24,4 @@ bool syncFiles(const char *serverAddress, ProgressCallback callback = defaultPro
 void printPsramFileSystem(void);
 
 bool performOTAUpdate(const char *otaServerURL, int firmwareSize);
-bool syncOTA(const char *otaServerURL);
+bool syncOTA(const char *otaServerURL, int currentVersion);

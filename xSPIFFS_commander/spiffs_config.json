@@ -3,5 +3,5 @@
     "spiffs_size": 1572864,
     "esp32_chip": "esp32-s3",
     "baud_rate": "921600",
-    "last_port": "COM12"
+    "last_port": "COM15"
 }

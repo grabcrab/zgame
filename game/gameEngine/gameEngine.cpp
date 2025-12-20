@@ -4,6 +4,8 @@
 #include "patterns.h"
 #include "tft_utils.h"
 #include "espRadio.h"
+#include "statusClient.h"
+
 static uint32_t gameStartedMs = 0;
 
 static uint32_t gameCompletedMs = 0;
@@ -38,6 +40,7 @@ void humanPreGame(uint16_t preTimeoutMs)
     int lastDrawMs = 0;
     uint32_t startMs = millis();    
     valPlayPattern(ROLE_ZOMBI_PATTERN);
+    statusClientSetGameStatus("HUM_WAIT");    
     while(millis() - startMs < preTimeoutMs)
     {        
         if (millis() - lastDrawMs < 1000)       
@@ -57,6 +60,7 @@ void zombiePreGame(uint16_t preTimeoutMs)
     int lastDrawMs = 0;
     uint32_t startMs = millis();    
     valPlayPattern(ROLE_ZOMBI_PATTERN);
+    statusClientSetGameStatus("ZOM_WAIT");    
     while(millis() - startMs < preTimeoutMs)
     {        
         if (millis() - lastDrawMs < 1000)       
@@ -78,6 +82,7 @@ void basePreGame(void)
     //CHANGE!!!
     int lastDrawMs = 0;
     uint32_t startMs = millis();    
+    statusClientSetGameStatus("BASE");    
     basePreWaitPicture();
     valPlayPattern(BASE_ROLE_PATTERN);    
 }
@@ -111,10 +116,11 @@ static void preGame(tGameRole role, uint16_t preTimeoutMs)
 
 void gameWait(void)
 {
+    const uint32_t gameWaitToMs = (60 * 60 * 1000);
     uint16_t preTimeoutMs;
     valPlayPattern(GAME_WAIT_PATTERN);
     gameWaitLogo();
-    tGameRole role = waitGame(preTimeoutMs);
+    tGameRole role = waitGame(preTimeoutMs, gameWaitToMs);
     preGame(role, preTimeoutMs);
 }
 

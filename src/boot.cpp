@@ -13,6 +13,7 @@
 #include "wifiUtils.h"
 #include "gameEngine.h"
 #include "statusClient.h"
+#include "version.h"
 
 static void boardInit(void)
 {
@@ -39,11 +40,13 @@ void checkSleep(bool resetTimer)
     }
     if (millis() - lastFedMs > DEF_SLEEP_AFTER_BOOT_FAIL_MS)    
     {
+        statusClientResume();
+        statusClientSetGameStatus("SLEEP_ON_FAIL");        
         Serial.println("!!!!!!! AUTO-SLEEP ON BOOT FAIL !!!!!!!!");
         tftPrintText("BOOT FAILED!");
         delay(5000);
         tftPrintText("SLEEP");
-        delay(2000);
+        delay(10000);
         boardStartSleep();
     }
 }
@@ -182,9 +185,12 @@ static void discoBoot(void)
 static void otaBoot(void)
 {
     int a = 0;    
+    int fwVer = String(BUILD_NUMBER).toInt();
+    statusClientSetGameStatus("OTA_CHECK");
+    statusClientPause();
     tftPrintText("OTA");
     delay(100);    
-    while (!syncOTA(ConfigAPI::getOTAServerUrl().c_str()))
+    while (!syncOTA(ConfigAPI::getOTAServerUrl().c_str(), fwVer))
     {        
         if (DEF_CAN_SKIP_OTA)
         {
@@ -200,6 +206,7 @@ static void otaBoot(void)
         checkSleep();
     }
     checkSleep(true);
+    statusClientResume();
 }
 
 static void statusBoot(void)
@@ -243,6 +250,8 @@ bool fsProgressCallback(uint32_t downloaded, uint32_t total, uint8_t percentage)
 static void fileSyncBoot(void)
 {
     int a = 0;    
+    statusClientSetGameStatus("FILE SYNC");
+    statusClientPause();
     tftPrintText("FILE SYNC");
     delay(100);
 
@@ -262,6 +271,7 @@ static void fileSyncBoot(void)
         tftPrintText("FILE SYNC READY");
         delay(500);
     }
+    statusClientResume();
 }
 
 static void valPlayerBoot(void)
@@ -326,12 +336,9 @@ bool initOnBoot(void)
     configBoot();
     netBoot();    
     discoBoot();
-    statusBoot();    
-    statusClientSetGameStatus("OTA CHECK");
-    otaBoot();
-    statusClientSetGameStatus("FILE SYNC");
-    fileSyncBoot();            
-    //valPlayPattern(WHILE_BOOT_PATTERN);    
+    statusBoot();        
+    otaBoot();       
+    fileSyncBoot();                
     radioBoot();
     valPlayerBoot();  
     valPlayPattern(ON_BOOT_PATTERN);

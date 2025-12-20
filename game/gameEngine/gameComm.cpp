@@ -6,6 +6,7 @@
 #include "xgConfig.h"
 #include "utils.h"
 #include "board.h"
+#include "statusClient.h"
 
 tGameApiRequest::tGameApiRequest()
 {
@@ -115,20 +116,30 @@ tGameRole waitGame(uint16_t &preTimeoutMs, uint32_t toMs)
     tGameApiRequest req;
     tGameRole res;
     Serial.print(">>> waitGame: ");
+    statusClientSetGameStatus("GAME WAIT");
     if (serverURL.isEmpty())
     {
-        Serial.println("NO GAME SERVER ERROR!");
+        Serial.println("NO GAME SERVER ERROR!");    
+        statusClientSetGameStatus("NO SERVER");    
         return grNone;
     }
     else 
     {
         req.print(serverURL);
     }
-    
+
     while(millis() - startMs < toMs)
     {
         tGameApiResponse resp = sendDeviceData(req, serverURL);
         resp.print();
+        if (!resp.success)
+        {
+            Serial.println("*** SERVER IS OFFLINE");
+            statusClientSetGameStatus("OFFLINE_HAT");    
+            delay(5000);
+            continue;
+        }
+
         if (resp.role != "neutral")
         {
             res = resp.getRole();
@@ -138,7 +149,7 @@ tGameRole waitGame(uint16_t &preTimeoutMs, uint32_t toMs)
         delay(R2R_INT_MS);
     }
     
-    Serial.print(">>> waitGame ROLE ");
+    Serial.print(">>> waitGame ROLE: ");
     
     Serial.println(role2str(res));
     return res;

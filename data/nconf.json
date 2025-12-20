@@ -5,15 +5,15 @@
   "wifi_networks": [
         {
             "ssid": "tcutestnet",
-            "password": "tcutestpass"
+            "password": "tcute_stpass"
         },
         {
             "ssid": "NOKIA-E86F38424E4B",
             "password": "0757127746"
         },
         {
-            "ssid": "BackupWiFi",
-            "password": "backup456"
+            "ssid": "Yam-Yam",
+            "password": "runner1978"
         }
   ],
   "servers": {
