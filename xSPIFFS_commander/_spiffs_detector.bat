@@ -1,0 +1,2 @@
+python spiffs_detector.py
+pause

@@ -1,0 +1,69 @@
+# Windows Firewall Configuration for xGAME Discovery Server
+# ============================================================
+
+# Your current rule is good, but you need BOTH inbound and outbound rules.
+# Also, you should allow the Python executable itself through the firewall.
+
+# 1. INBOUND UDP Rule (you already have this one)
+# This allows ESP32 devices to send discovery requests TO your server
+netsh advfirewall firewall add rule name="xGAME Disco Server - UDP IN" dir=in action=allow protocol=UDP localport=4210
+
+# 2. OUTBOUND UDP Rule (YOU NEED THIS!)
+# This allows your server to send responses BACK to ESP32 devices
+netsh advfirewall firewall add rule name="xGAME Disco Server - UDP OUT" dir=out action=allow protocol=UDP localport=4210
+
+# 3. Allow Python executable (RECOMMENDED)
+# Replace the path below with your actual Python installation path
+# To find your Python path, run: where python
+# Common paths:
+#   - C:\Python312\python.exe
+#   - C:\Users\YourUser\AppData\Local\Programs\Python\Python312\python.exe
+#   - C:\Program Files\Python312\python.exe
+
+# Example (adjust the path to match your Python installation):
+netsh advfirewall firewall add rule name="xGAME Disco Server - Python" dir=in action=allow program="C:\Python312\python.exe" enable=yes
+
+netsh advfirewall firewall add rule name="xGAME Disco Server - Python OUT" dir=out action=allow program="C:\Python312\python.exe" enable=yes
+
+# 4. OPTIONAL: Allow broadcast traffic explicitly
+# This ensures broadcast packets are not blocked
+netsh advfirewall firewall add rule name="xGAME Disco Server - Broadcast" dir=in action=allow protocol=UDP localport=4210 remoteip=any
+
+# 5. OPTIONAL: If you also run a TCP server on port 3232
+netsh advfirewall firewall add rule name="xGAME TCP Server - IN" dir=in action=allow protocol=TCP localport=3232
+netsh advfirewall firewall add rule name="xGAME TCP Server - OUT" dir=out action=allow protocol=TCP localport=3232
+
+# ============================================================
+# TO VIEW EXISTING RULES:
+# netsh advfirewall firewall show rule name=all | findstr "xGAME"
+# or
+# netsh advfirewall firewall show rule name="xGAME Disco Server - UDP IN"
+
+# TO DELETE RULES (if you need to start over):
+# netsh advfirewall firewall delete rule name="Baza Disco Server"
+# netsh advfirewall firewall delete rule name="xGAME Disco Server - UDP IN"
+# netsh advfirewall firewall delete rule name="xGAME Disco Server - UDP OUT"
+
+# ============================================================
+# TROUBLESHOOTING TIPS:
+#
+# 1. Check if Windows Firewall is blocking:
+#    - Open Windows Defender Firewall
+#    - Click "Advanced settings"
+#    - Look for your rules under "Inbound Rules" and "Outbound Rules"
+#
+# 2. Test with firewall temporarily disabled:
+#    netsh advfirewall set allprofiles state off
+#    (Remember to turn it back on!)
+#    netsh advfirewall set allprofiles state on
+#
+# 3. Check network profile (Public vs Private):
+#    - Discovery works better on "Private" networks
+#    - Set network to Private in Windows Settings
+#
+# 4. Verify UDP port is listening:
+#    netstat -an | findstr :4210
+#
+# 5. Use Wireshark to see if packets are arriving:
+#    - Filter: udp.port == 4210
+#    - You should see ESP32 broadcast packets

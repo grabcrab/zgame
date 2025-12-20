@@ -88,13 +88,13 @@ bool processFixedRole(String deviceRole)
         return startRssiReader();
     }
    
-    tftPrintText("ROLE CONF. ERROR");
-    while(true)
-    {
-        Serial.println("!!! Role config file error!!!\r\n");
-        delay(10900);
-    }
-    
+    // tftPrintText("ROLE CONF. ERROR");
+    // while(true)
+    // {
+    //     Serial.println("!!! Role config file error!!!\r\n");
+    //     delay(10900);
+    // }
+    return false;
 }
 
 // bool processRssiMonitor(String deviceRole)
@@ -123,6 +123,12 @@ void processGameRole(void)
         return;
     }
 
+    if (deviceRole == "gamePlayer")
+    {
+        gameWait();
+        return;
+    }    
+
     if (processFixedRole(deviceRole))
     {
         return;
@@ -133,17 +139,11 @@ void processGameRole(void)
     //     return;
     // }
 
-    if (deviceRole == "gamePlayer")
-    {
-        gameWait();
-        return;
-    }    
-
     tftPrintText("!WRONG ROLE!");
-    while(true)
+    for (int i = 0; i < 12; i++)
     {
         Serial.println("!WRONG ROLE!");
-        delay(1000);
+        delay(5000);
     }
 }
 

@@ -3,7 +3,7 @@
 #include "espRadio.h"
 #include "wifiAuto.h"
 
-uint8_t wifiChannel = DEF_WIFI_CHANNEL;
+uint8_t wifiChannel = ESP_WIFI_CHANNEL;
 
 static void netPrint(void)
 {

@@ -1,0 +1,2 @@
+python ScanAllPyPack.py
+pause

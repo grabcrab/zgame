@@ -517,6 +517,7 @@ bool syncFiles(const char *serverAddress, ProgressCallback callback)
     else
     {
         Serial.println("Synchronization cancelled by user");
+        return false;
     }
 
     // Final progress update

@@ -31,8 +31,11 @@ def responder():
 
     while True:
         data, addr = sock.recvfrom(64)
+        print(f'Received from {addr}: {data}')  # DEBUG
         if b'ESP32-LOOK' in data:
-            sock.sendto(ip.encode(), addr)
+            response = ip.encode()
+            sock.sendto(response, addr)
+            print(f'Sent response: {response} to {addr}')  # DEBUG
 
 threading.Thread(target=responder, daemon=True).start()
 

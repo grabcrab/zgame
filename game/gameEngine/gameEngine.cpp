@@ -15,13 +15,18 @@ static bool inTheBase = 0;
 void gameOnCritical(String errS)
 {
     //SLEEP HANDLING!!!
+    int waitSec = 5;
     valPlayPattern(ERROR_PATTERN);
-    while(true)
+    gameCriticalErrorPicture();
+    while(waitSec)
     {
-        Serial.print("!!! GAME ERROR: ");
-        Serial.println(errS);
+        Serial.printf("!!! GAME ERROR: [%s] [%d sec to reboot]\r\n", errS.c_str(), waitSec);        
         delay(1000);
+        waitSec--;
     }
+    Serial.println("!!!! REBOOTING !!!!");
+    delay(1000);
+    ESP.restart();
 }
 
 void humanPreGame(uint16_t preTimeoutMs)

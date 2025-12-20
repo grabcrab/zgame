@@ -203,6 +203,18 @@ static bool checkFsInit(void)
     return true;
 }
 
+bool fsProgressCallback(uint32_t downloaded, uint32_t total, uint8_t percentage)
+{
+    String legendS = "FILE SYNC " + String(percentage) + "%";
+    Serial.printf("Progress: %d/%d bytes (%d%%) downloaded\n", downloaded, total, percentage);
+    tftPrintText(legendS);
+
+    // Add your custom logic here
+    // Return false to cancel sync, true to continue
+    return true;
+}
+
+
 static void fileSyncBoot(void)
 {
     int a = 0;    
@@ -211,11 +223,11 @@ static void fileSyncBoot(void)
 
     if (!checkFsInit())
     {
-        while (!syncFiles(ConfigAPI::getFileServerUrl().c_str()))
+        while (!syncFiles(ConfigAPI::getFileServerUrl().c_str(), fsProgressCallback))
         {
             a++;
             Serial.printf("!!! File sync failed, attempt #%d\r\n", a);
-            tftPrintText("FILE SYNC " + String(a));
+            tftPrintText("FILE SYNC ERR " + String(a));
             checkSleep();
         }
         checkSleep(true);    

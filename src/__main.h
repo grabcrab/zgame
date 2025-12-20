@@ -11,7 +11,7 @@
 #define DEF_NET_WAIT_MS         15000
 #define DEF_SLEEP_AFTER_BOOT_FAIL_MS    300000 
 
-#define DEF_WIFI_CHANNEL        1
+//#define DEF_WIFI_CHANNEL        1
 
 #define DEF_USE_TFT             (true)
 

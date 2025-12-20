@@ -1,6 +1,8 @@
 @echo off
 echo Starting BAZA servers
 
+python ScanAllPyPack.py
+
 if not exist "FileServer\" (
     echo ERROR: Folder "FileServer" not found!
     pause

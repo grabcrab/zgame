@@ -1,0 +1,17 @@
+{
+    "discovery": {
+        "port": 4210,
+        "auto_start": true
+    },
+    "file_server": {
+        "port": 5001,
+        "auto_start": true,
+        "sync_folder": "./sync_files"
+    },
+    "ota_server": {
+        "port": 5005,
+        "auto_start": false,
+        "firmware_dir": "./firmware",
+        "firmware_file": "firmware.bin"
+    }
+}

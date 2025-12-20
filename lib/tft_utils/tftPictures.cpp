@@ -30,3 +30,8 @@ void gameOverPicture(void)
 {
     tftDrawBmp("/xgameover.bmp", 0, 0, 536, 240);    
 }
+
+void gameCriticalErrorPicture(void)
+{
+    tftDrawBmp("/xerror.bmp", 0, 0, 536, 240);    
+}

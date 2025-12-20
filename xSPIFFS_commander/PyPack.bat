@@ -1,18 +1,23 @@
 @echo off
-REM ESP32 SPIFFS Manager - Install Requirements
-REM This batch file installs all required Python packages
+REM ==============================================================
+REM ESP32 SPIFFS Manager – Automated Setup & Requirements Installer
+REM ==============================================================
 
-echo ====================================
-echo ESP32 SPIFFS Manager Setup
-echo ====================================
+echo.
+echo ==============================================================
+echo ESP32 SPIFFS Manager  –  Setup & Requirements Installer
+echo ==============================================================
 echo.
 
-REM Check if Python is installed
+:: --------------------------------------------------------------
+::  1️⃣  Verify that a usable Python interpreter is on the PATH
+:: --------------------------------------------------------------
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH!
-    echo Please install Python from https://www.python.org/downloads/
-    echo Make sure to check "Add Python to PATH" during installation.
+    echo ERROR: Python is not installed or not in your PATH!
+    echo Please download and install Python from:
+    echo   https://www.python.org/downloads/
+    echo Make sure to tick “Add Python to PATH” during installation.
     echo.
     pause
     exit /b 1
@@ -22,11 +27,13 @@ echo Python found:
 python --version
 echo.
 
-REM Check if pip is available
+:: --------------------------------------------------------------
+::  2️⃣  Verify that pip (the Python package manager) is available
+:: --------------------------------------------------------------
 pip --version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: pip is not available!
-    echo Please reinstall Python with pip included.
+    echo Re‑install Python and be sure the “pip” component is selected.
     echo.
     pause
     exit /b 1
@@ -36,81 +43,116 @@ echo pip found:
 pip --version
 echo.
 
-echo Installing required packages...
-echo ====================================
+:: --------------------------------------------------------------
+::  3️⃣  Install / upgrade the required third‑party packages
+:: --------------------------------------------------------------
+echo Installing required Python packages (latest versions)...
+echo ==============================================================
+echo.
 
-REM Install pyserial
-echo Installing pyserial...
-pip install pyserial
+:: ---- pyserial ------------------------------------------------
+echo Installing/Updating pyserial...
+pip install -U pyserial
 if errorlevel 1 (
-    echo ERROR: Failed to install pyserial!
+    echo ERROR: Failed to install/upgrade pyserial!
     echo.
     pause
     exit /b 1
 )
-echo pyserial installed successfully.
+echo pyserial installed/updated successfully.
 echo.
 
-REM Install tkinter (usually comes with Python, but just in case)
-echo Checking tkinter availability...
-python -c "import tkinter; print('tkinter is available')" 2>nul
+:: ---- esptool -------------------------------------------------
+echo Installing/Updating esptool (required for ESP32 communication)...
+pip install -U esptool
 if errorlevel 1 (
-    echo WARNING: tkinter not found!
-    echo tkinter usually comes with Python. You may need to:
-    echo - Reinstall Python with tkinter included
-    echo - On Linux: sudo apt-get install python3-tk
-    echo - On some distributions, install python-tkinter package
+    echo ERROR: Failed to install/upgrade esptool!
     echo.
+    pause
+    exit /b 1
 )
+echo esptool installed/updated successfully.
+echo.
 
-REM Test all required modules
-echo ====================================
-echo Testing all required modules...
-echo ====================================
-
-python -c "
+:: --------------------------------------------------------------
+::  4️⃣  Verify that the standard library modules we rely on exist
+:: --------------------------------------------------------------
+echo ==============================================================
+echo Testing that all required modules are importable...
+echo ==============================================================
+python - <<END
 import sys
-modules = ['tkinter', 'serial', 'json', 'subprocess', 'pathlib', 'threading', 'os']
-failed = []
 
-for module in modules:
+# Modules that must be importable (standard‑library or installed above)
+required = [
+    'tkinter',          # GUI – ships with the CPython distribution
+    'serial',           # pyserial (installed above)
+    'esptool',          # installed above
+    'json',
+    'subprocess',
+    'pathlib',
+    'threading',
+    'os',
+]
+
+missing = []
+
+for mod in required:
     try:
-        __import__(module)
-        print(f'✓ {module}')
+        __import__(mod)
+        print(f'✓ {mod}')
     except ImportError as e:
-        print(f'✗ {module} - {e}')
-        failed.append(module)
+        print(f'✗ {mod} – {e}')
+        missing.append(mod)
 
-if failed:
-    print(f'\nFailed to import: {failed}')
+if missing:
+    print(f'\nERROR: The following required modules could not be imported: {missing}')
     sys.exit(1)
 else:
     print('\nAll required modules are available!')
     sys.exit(0)
-"
+END
 
 if errorlevel 1 (
     echo.
-    echo ERROR: Some required modules are missing!
-    echo Please check the error messages above.
-    echo.
+    echo ==============================================================
+    echo ERROR: One or more required modules are missing.
+    echo Please review the messages above and resolve the issues.
+    echo ==============================================================
     pause
     exit /b 1
 )
 
+:: --------------------------------------------------------------
+::  5️⃣  Verify that tkinter can actually create a window
+:: --------------------------------------------------------------
+echo Checking tkinter runtime availability...
+python -c "import tkinter; tkinter.Tk().withdraw()" 2>nul
+if errorlevel 1 (
+    echo WARNING: tkinter could not be initialized!
+    echo On Windows it normally ships with Python, but on some Linux
+    echo distributions you may need to install it manually, e.g.:
+    echo   sudo apt-get install python3-tk
+    echo.
+)
+
+:: --------------------------------------------------------------
+::  6️⃣  Final success message & next steps
+:: --------------------------------------------------------------
 echo.
-echo ====================================
+echo ==============================================================
 echo Setup completed successfully!
-echo ====================================
+echo ==============================================================
 echo.
-echo You can now run the ESP32 SPIFFS Manager by:
-echo 1. Double-clicking on spiffs_manager.py
-echo 2. Or running: python spiffs_manager.py
+echo You can now start the ESP32 SPIFFS Manager with one of the following:
+echo   1. Double‑click the script file  (spiffs_commander.py)
+echo   2. From a command prompt:
+echo        python spiffs_commander.py
 echo.
-echo Make sure you have the following files in the same directory:
-echo - esptool.exe
-echo - mkspiffs_espressif32_arduino.exe
-echo - spiffs_manager.py
+echo Make sure the following files are present in the same folder:
+echo   - esptool.exe
+echo   - mkspiffs_espressif32_arduino.exe
+echo   - spiffs_commander.py
 echo.
-echo Press any key to exit...
+echo Press any key to exit…
 pause >nul

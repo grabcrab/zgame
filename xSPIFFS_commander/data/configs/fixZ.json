@@ -1,6 +1,6 @@
 {
   "device_name": "BAZA_GAME_001",
-  "deviceID":1,
+  "deviceID":2,
   "deviceRole":"fixZombie",    
   "wifi_networks": [
         {

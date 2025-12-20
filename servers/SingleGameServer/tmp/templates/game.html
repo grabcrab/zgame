@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game In Progress</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        let startTime = new Date('{{ game_state.game_start_time.isoformat() }}');
+        let duration = {{ game_state.game_duration }} * 60 * 1000;
+
+        function updateTimer() {
+            let now = new Date();
+            let elapsed = now - startTime;
+            let remaining = Math.max(0, duration - elapsed);
+            let hours = Math.floor(remaining / 3600000);
+            let minutes = Math.floor((remaining % 3600000) / 60000);
+            let seconds = Math.floor((remaining % 60000) / 1000);
+            document.getElementById('timer').innerText = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update only the device tables
+        function updateDeviceTables() {
+            fetch('/game')
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newZombiesTable = doc.querySelector('.zombies-table');
+                    const newHumansTable = doc.querySelector('.humans-table');
+                    
+                    if (newZombiesTable) {
+                        document.querySelector('.zombies-table').outerHTML = newZombiesTable.outerHTML;
+                    }
+                    if (newHumansTable) {
+                        document.querySelector('.humans-table').outerHTML = newHumansTable.outerHTML;
+                    }
+                })
+                .catch(error => console.error('Error updating tables:', error));
+        }
+
+        // Add a minute to game duration
+        function addMinute() {
+            fetch('/add_minute', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        duration += 60 * 1000; // Add 1 minute to client-side duration
+                        console.log('Added 1 minute to game duration');
+                    }
+                })
+                .catch(error => console.error('Error adding minute:', error));
+        }
+
+        // Run on page load
+        window.onload = function() {
+            updateTimer(); // Initial timer update
+            updateDeviceTables(); // Initial table update
+            setInterval(updateTimer, 1000);
+            setInterval(updateDeviceTables, 5000);
+        };
+    </script>
+</head>
+<body class="bg-gray-100 p-4">
+    <h1 class="text-2xl font-bold mb-4">Game In Progress</h1>
+    <h2 id="timer" class="text-xl mb-4">00:00:00</h2>
+    <div class="flex space-x-4">
+        <div class="w-1/2">
+            <h3 class="text-lg font-bold mb-2">Zombies ({{ zombies|length }})</h3>
+            <table class="zombies-table table-auto w-full mb-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2">ID</th>
+                        <th class="px-4 py-2">IP</th>
+                        <th class="px-4 py-2">RSSI</th>
+                        <th class="px-4 py-2">Role</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Health</th>
+                        <th class="px-4 py-2">Battery</th>
+                        <th class="px-4 py-2">Comment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in zombies %}
+                    <tr>
+                        <td class="border px-4 py-2">{{ device.id }}</td>
+                        <td class="border px-4 py-2">{{ device.ip }}</td>
+                        <td class="border px-4 py-2">{{ device.rssi }}</td>
+                        <td class="border px-4 py-2">{{ device.role }}</td>
+                        <td class="border px-4 py-2">{{ device.status }}</td>
+                        <td class="border px-4 py-2">{{ device.health }}</td>
+                        <td class="border px-4 py-2">{{ device.battery }}%</td>
+                        <td class="border px-4 py-2">{{ device.comment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="w-1/2">
+            <h3 class="text-lg font-bold mb-2">Humans ({{ humans|length }})</h3>
+            <table class="humans-table table-auto w-full mb-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2">ID</th>
+                        <th class="px-4 py-2">IP</th>
+                        <th class="px-4 py-2">RSSI</th>
+                        <th class="px-4 py-2">Role</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Health</th>
+                        <th class="px-4 py-2">Battery</th>
+                        <th class="px-4 py-2">Comment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in humans %}
+                    <tr>
+                        <td class="border px-4 py-2">{{ device.id }}</td>
+                        <td class="border px-4 py-2">{{ device.ip }}</td>
+                        <td class="border px-4 py-2">{{ device.rssi }}</td>
+                        <td class="border px-4 py-2">{{ device.role }}</td>
+                        <td class="border px-4 py-2">{{ device.status }}</td>
+                        <td class="border px-4 py-2">{{ device.health }}</td>
+                        <td class="border px-4 py-2">{{ device.battery }}%</td>
+                        <td class="border px-4 py-2">{{ device.comment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="space-x-2">
+        <button onclick="addMinute()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add a Minute</button>
+        <button onclick="if(confirm('End game?')) window.location.href='{{ url_for('end_screen') }}'" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">End Game</button>
+    </div>
+</body>
+</html>

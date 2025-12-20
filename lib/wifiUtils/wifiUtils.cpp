@@ -312,34 +312,78 @@ void wifiMaxPower(void)
     Serial.println(">>> wifiMaxPower: " + String(power / 4.0) + " dBm");
 }
 
+// bool wifiGetDisco(IPAddress &server)
+// {
+//     WiFiUDP udp;    
+//     const uint16_t DISCO_PORT = 4210; // arbitrary free port
+//     const char DISCO_MAGIC[] = "ESP32-LOOK";
+//     udp.begin(DISCO_PORT);
+
+//     IPAddress broadcast(255, 255, 255, 255);
+//     udp.beginPacket(broadcast, DISCO_PORT);
+//     udp.write((uint8_t *)DISCO_MAGIC, strlen(DISCO_MAGIC));
+//     udp.endPacket();
+
+//     uint32_t start = millis();
+//     while (millis() - start < 300)
+//     { 
+//         int len = udp.parsePacket();
+//         if (len >= 7)
+//         { // expect “192.x.x.x”
+//             char buf[16] = {0};
+//             udp.read(buf, sizeof(buf) - 1);            
+//             if (server.fromString(buf))
+//             {
+//                 Serial.print(">>> wifiGetDisco: server found at ");
+//                 Serial.println(server);
+//                 return true;
+//             }
+//         }
+//     }
+//     Serial.println(">>> wifiGetDisco: NO SERVER FOUND");
+//     return false;
+// }
+
 bool wifiGetDisco(IPAddress &server)
 {
     WiFiUDP udp;    
-    const uint16_t DISCO_PORT = 4210; // arbitrary free port
+    const uint16_t DISCO_PORT = 4210;
     const char DISCO_MAGIC[] = "ESP32-LOOK";
-    udp.begin(DISCO_PORT);
-
+    
+    // Bind to ANY available port (not 4210!)
+    udp.begin(0);  // 0 = random available port
+    
     IPAddress broadcast(255, 255, 255, 255);
-    udp.beginPacket(broadcast, DISCO_PORT);
+    udp.beginPacket(broadcast, DISCO_PORT);  // Send TO server's port
     udp.write((uint8_t *)DISCO_MAGIC, strlen(DISCO_MAGIC));
     udp.endPacket();
 
+    Serial.println(">>> wifiGetDisco: Broadcast sent, waiting for response...");
+
     uint32_t start = millis();
-    while (millis() - start < 300)
+    while (millis() - start < 2000)  // Increased timeout
     { 
         int len = udp.parsePacket();
         if (len >= 7)
-        { // expect “192.x.x.x”
+        { 
             char buf[16] = {0};
-            udp.read(buf, sizeof(buf) - 1);            
+            udp.read(buf, sizeof(buf) - 1);
+            
+            Serial.print(">>> Received response: ");
+            Serial.println(buf);
+            
             if (server.fromString(buf))
             {
-                Serial.print(">>> wifiGetDisco: server found at ");
+                Serial.print(">>> wifiGetDisco: Server found at ");
                 Serial.println(server);
+                udp.stop();
                 return true;
             }
         }
+        delay(10);  // Small delay to prevent tight loop
     }
+    
     Serial.println(">>> wifiGetDisco: NO SERVER FOUND");
+    udp.stop();
     return false;
 }
