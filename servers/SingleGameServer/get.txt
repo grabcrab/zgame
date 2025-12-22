@@ -1,1 +1,3 @@
-http://192.168.1.120:5000/api/device?data={"id":"device123","ip":"192.168.1.100","rssi":-65,"role":"neutral","status":"sleep","health":100,"battery":85,"comment":"Device operational"}
+http://192.168.1.120:5000/api/device?data={"id":"ESP32_005","ip":"192.168.1.100","rssi":-65,"role":"neutral","status":"sleep","health":100,"battery":85,"comment":"Device operational"}
+
+http://127.0.0.1:5000/api/device?data={%22id%22:%22ESP32_005%22,%22ip%22:%22192.168.1.100%22,%22rssi%22:-65,%22role%22:%22neutral%22,%22status%22:%22sleep%22,%22health%22:100,%22battery%22:85,%22comment%22:%22Device%20operational%22}
