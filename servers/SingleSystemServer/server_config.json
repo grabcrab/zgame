@@ -10,7 +10,7 @@
     },
     "ota_server": {
         "port": 5005,
-        "auto_start": false,
+        "auto_start": true,
         "firmware_dir": "./firmware",
         "firmware_file": "firmware.bin"
     },

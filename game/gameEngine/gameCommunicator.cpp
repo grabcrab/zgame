@@ -7,12 +7,16 @@
 
 #define COM_LOOP_DELAY 2
 
+static bool commStarted = false;
+static TaskHandle_t taskHandle = NULL;
+
 void communicatorJob(void*)
 {   
     unsigned long lastBeaconMs = 0;
     unsigned long lastPrintedMs = 0;
     const int beaconRssi = -40;
     Serial.println(">>> communicatorJob started");    
+    commStarted = true;
     delay(10);
     while(true)
     {
@@ -29,5 +33,20 @@ void communicatorJob(void*)
 
 void startCommunicator(void)
 {
-    xTaskCreatePinnedToCore(communicatorJob, "communicatorJob", 25000, NULL, 7 | portPRIVILEGE_BIT, NULL, APP_CPU_NUM);
+    if (commStarted)
+    {
+        Serial.println("!!! startCommunicator: ALREADY STARTED !!!");
+        return;
+    }
+    xTaskCreatePinnedToCore(communicatorJob, "communicatorJob", 25000, NULL, 7 | portPRIVILEGE_BIT, &taskHandle, APP_CPU_NUM);
+}
+
+void stopCommunicator(void)
+{
+    if (!commStarted)
+    {
+        return;
+    }
+    vTaskDelete(taskHandle);
+    delay(200);
 }

@@ -1,0 +1,51 @@
+{
+    "MasterSession":
+    {
+        "SessionName": "XMR_INCL_201",
+        "MasterSenderMode": true,
+        "MasterSenderAddress": 201,
+        "LoRaPackets":
+        [
+            {                                            
+                "InputRegisters":
+                [                                                          
+                    {
+                        "Interface": "Modbus",                            
+                        "BaudRate": 9600,                            
+                        "PortConfiguration": "SERIAL_8N1",
+                        "RegType": "HoldingRegister",
+                        "RegName": "AngleX",
+                        "ReadDeviceAddress": "1",                            
+                        "ReadRegisterAddress":"1",
+                        "SendRegisterAddress":"1",
+                        "RegCount":"2",
+                        "ErrorBitNum":2,
+                        "RangeControl":true,
+                        "DataType":"FLOAT", 
+                        "MinValue":-500,
+                        "MaxValue":500,
+                        "ReReadCount":3
+                    },
+                    {
+                        "Interface": "Modbus",                            
+                        "BaudRate": 9600,                            
+                        "PortConfiguration": "SERIAL_8N1",
+                        "RegType": "HoldingRegister",
+                        "RegName": "AngleY",
+                        "ReadDeviceAddress": "1",                            
+                        "ReadRegisterAddress":"3",
+                        "SendRegisterAddress":"3",
+                        "RegCount":"2",
+                        "ErrorBitNum":3,
+                        "RangeControl":true,
+                        "DataType":"FLOAT", 
+                        "MinValue":-500,
+                        "MaxValue":500,
+                        "ReReadCount":3
+                    }
+                ]
+            }
+        ]
+    }
+}
+

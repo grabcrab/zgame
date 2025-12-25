@@ -1,0 +1,9 @@
+#Name,	    Type,	SubType,	Offset,	    Size,	Flags
+nvs, 	    data, 	nvs, 	    36864, 	    16384, 	
+eeprom, 	data, 	0x99, 	    53248, 	    4096, 	
+otadata, 	data, 	ota, 	    57344, 	    8192, 	
+app0, 	    app, 	ota_0, 	    65536, 	    3997696, 	
+app1, 	    app, 	ota_1, 	    4063232, 	3997696, 	
+spiffs,     data, 	spiffs,     8060928,    114688, 	
+flash, 	    data, 	255, 	    16449536, 	262144, 	
+phy_init, 	data, 	phy, 	    16711680, 	4096, 	

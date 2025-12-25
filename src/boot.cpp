@@ -213,9 +213,8 @@ static void statusBoot(void)
 {
     int a = 0;    
     tftPrintText("STATUS CLIENT");
-    delay(100);    
-
-    while (!statusClientInit(ConfigAPI::getDeviceName().c_str(), ConfigAPI::getDiscoServer().c_str()))
+    delay(100);        
+    while (!statusClientInit(/*ConfigAPI::getDeviceName().c_str(), */ConfigAPI::getDiscoServer().c_str()))
     {                
         checkSleep();
         a++;

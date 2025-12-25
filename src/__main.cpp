@@ -8,6 +8,7 @@
 
 #include "valPlayer.h"
 #include "tft_utils.h"
+#include "statusClient.h"
 
 // const char *ssid = "tcutestnet";
 // const char *password = "tcutestpass";
@@ -109,7 +110,7 @@ bool processFixedRole(String deviceRole)
 
 void processGameRole(void)
 {
-    String deviceName = ConfigAPI::getDeviceName();
+    String deviceName = statusClientGetName();//ConfigAPI::getDeviceName();
     String deviceRole = ConfigAPI::getDeviceRole();
     Serial.printf(">>>> processGameRole [%s] [%s]\r\n", deviceName.c_str(), deviceRole.c_str());
 

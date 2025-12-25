@@ -1,2 +1,2 @@
-wifi_ssid=MyWiFi
+wifi_ssid=MyWiFo
 wifi_password=MyPassword

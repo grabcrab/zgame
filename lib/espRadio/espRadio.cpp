@@ -217,6 +217,12 @@ void testSender(uint16_t devID, uint16_t intMs)
 /////////////////
 void  espInitRxTx(tEspPacket *txPack, bool doRx)
 {        
+    static bool wasInit = false;
+    if (wasInit)
+    {
+        return;
+    }
+    wasInit = true;
     txPacket = txPack;
     rssiReaderInit();
     initRadio();

@@ -92,7 +92,7 @@ public:
     void deinitialize();
     
 #ifdef USE_PSRAM_FOR_CONFIG
-    String getDeviceName() const { return String(deviceName);}
+    //String getDeviceName() const { return String(deviceName);}
     String getDeviceRole() const { return String(deviceRole);}
     uint16_t getDeviceID() const { return deviceID;}
     String getFileServerUrl() const { return String(fileServerUrl);}

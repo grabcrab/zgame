@@ -1,11 +1,11 @@
 {
-  "device_name": "BAZA_GAME_002",
-  "deviceID":1,
-  "deviceRole":"fixBase",    
+  "device_name": "BAZA_GAME_001",
+  "deviceID":2,
+  "deviceRole":"gamePlayer",    
   "wifi_networks": [
         {
-            "ssid": "tcutes_tnet",
-            "password": "tcutestpass"
+            "ssid": "tcute_stnet",
+            "password": "tcutes_tpass"
         },
         {
             "ssid": "NOKIA-E86F38424E4B",
@@ -17,10 +17,9 @@
         }
   ],
   "servers": {
-    "file_server": "http://0.0.1.120:5001",
-    "game_server": "http://0.0.1.120:5000", 
-    "ota_server":  "http://0.0.1.120:5005",
-    "sys_server":  "http://0.0.1.120:5007"
+    "file_server": "http://192.168.1.120:5001",
+    "game_server": "http://192.168.1.120:5000", 
+    "ota_server":  "http://192.168.1.120:5005"
   },  
   "tmpStrings":{
     "deviceRole":"fixBase",  

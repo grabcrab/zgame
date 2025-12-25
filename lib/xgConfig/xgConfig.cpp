@@ -561,15 +561,15 @@ namespace ConfigAPI
         return protocol + newAddress + pathAndQuery;
     }
 
-    String getDeviceName()
-    {
-        if (!isInitialized())
-        {
-            Serial.println("ConfigAPI: Not initialized");
-            return String("BAZA_GAME");
-        }
-        return g_configInstance->getDeviceName();
-    }
+    // String getDeviceName()
+    // {
+    //     if (!isInitialized())
+    //     {
+    //         Serial.println("ConfigAPI: Not initialized");
+    //         return String("BAZA_GAME");
+    //     }
+    //     return g_configInstance->getDeviceName();
+    // }
 
     String getDeviceRole()
     {

@@ -1,6 +1,6 @@
 {
-  "human_percentage": 50,
-  "game_timeout": 30,
+  "human_percentage": 42,
+  "game_timeout": 12,
   "game_duration": 4,
   "num_gamers": 25
 }

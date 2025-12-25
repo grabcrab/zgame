@@ -74,7 +74,7 @@ void zombiePreGame(uint16_t preTimeoutMs)
         tftPrintTextBig(String(secLeft), TFT_BLACK, TFT_GREEN, true);
         lastDrawMs = millis();
     }
-    valPlayPattern(GAME_ZOMBIE_NEUTRAL);
+    valPlayPattern(GAME_ZOMBIE_NEUTRAL);    
 }
 
 void basePreGame(void)
@@ -94,13 +94,16 @@ void rssiMonitorPreGame(void)
 
 static void preGame(tGameRole role, uint16_t preTimeoutMs)
 {
+    bool res = false;
     switch(role)
     {
         case grZombie:
-            zombiePreGame(preTimeoutMs);
+            //zombiePreGame(preTimeoutMs);
+            res = startZombieGame(preTimeoutMs);
         return;        
         case grHuman:
-            humanPreGame(preTimeoutMs);
+            //humanPreGame(preTimeoutMs);
+            res = startHumanGame(preTimeoutMs);
         return;        
         case grBase:
             basePreGame();
@@ -111,6 +114,10 @@ static void preGame(tGameRole role, uint16_t preTimeoutMs)
         default:
             gameOnCritical("ERR_ROLE", false);
         break;
+    }
+    if (!res)
+    {
+        gameOnCritical("GAME_FAILED", false);
     }
 }
 
@@ -337,14 +344,15 @@ bool startGameFromFile(String captS, String fileName, uint16_t gameToMs)
 {        
     Serial.print(">>> ");
     Serial.println(captS);
-
+    stopCommunicator();
     if (setSelfJsonFromFile(fileName))
-    {
+    {        
         preGame(getSelfDataRecord()->deviceRole, gameToMs);
         espInitRxTx(getSelfTxPacket(), true);
         startCommunicator();
         return true;
     }
+    
     return false;
 }
 

@@ -17,7 +17,7 @@ import time
 import subprocess
 import platform
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, simpledialog
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from flask import Flask, request, jsonify, send_file
@@ -766,6 +766,7 @@ class DeviceStatusServer:
         self.app = None
         self.devices = {}  # MAC -> device info
         self.pending_commands = {}  # MAC -> command
+        self.pending_names = {}  # MAC -> new name (server-side name override)
         self.devices_lock = threading.Lock()
         self.known_online_devices = set()  # Track which devices were online
     
@@ -799,8 +800,31 @@ class DeviceStatusServer:
                 # Calculate if device is online (received update within timeout)
                 last_seen = info.get('last_seen', 0)
                 device['online'] = (current_time - last_seen) < self.device_timeout
+                # Add pending name info if there's a rename in progress
+                if mac in self.pending_names:
+                    device['pending_name'] = self.pending_names[mac]
                 result.append(device)
             return result
+    
+    def set_new_name(self, mac, new_name):
+        """Set a new name for a device (will be sent in next status response)"""
+        with self.devices_lock:
+            if mac in self.devices:
+                self.pending_names[mac] = new_name
+                self.log(f"Name change to '{new_name}' queued for device {mac}", "INFO")
+                return True
+            return False
+    
+    def get_pending_name(self, mac):
+        """Get the pending name for a device if any"""
+        with self.devices_lock:
+            return self.pending_names.get(mac)
+    
+    def clear_pending_name(self, mac):
+        """Clear the pending name for a device (called when device confirms the name)"""
+        with self.devices_lock:
+            if mac in self.pending_names:
+                del self.pending_names[mac]
     
     def set_command(self, mac, command):
         """Queue a command for a device"""
@@ -864,11 +888,12 @@ class DeviceStatusServer:
                     old_game_status = server.devices.get(mac, {}).get('game_status', '')
                     new_device_status = data.get('device_status', 'UNKNOWN')
                     new_game_status = data.get('game_status', '')
+                    device_reported_name = data.get('name', 'Unknown')
                     
                     # Update device info
                     server.devices[mac] = {
                         'mac': mac,
-                        'name': data.get('name', 'Unknown'),
+                        'name': device_reported_name,
                         'ip': data.get('ip', ''),
                         'ssid': data.get('ssid', ''),
                         'rssi': data.get('rssi', 0),
@@ -886,20 +911,33 @@ class DeviceStatusServer:
                     # Mark device as online (for monitor thread)
                     server.known_online_devices.add(mac)
                     
-                    # Check for pending command
+                    # Build response
                     response_data = {'status': 'ok'}
+                    
+                    # Check for pending command
                     if mac in server.pending_commands:
                         response_data['command'] = server.pending_commands[mac]
                         del server.pending_commands[mac]
-                        server.log(f"Sent command '{response_data['command']}' to {data.get('name', mac)}", "SUCCESS")
+                        server.log(f"Sent command '{response_data['command']}' to {device_reported_name}", "SUCCESS")
+                    
+                    # Check for pending name change
+                    if mac in server.pending_names:
+                        pending_new_name = server.pending_names[mac]
+                        # Always send the new_name until device confirms it
+                        response_data['new_name'] = pending_new_name
+                        
+                        # If device already has the new name, clear the pending name
+                        if device_reported_name == pending_new_name:
+                            del server.pending_names[mac]
+                            server.log(f"Device {mac} confirmed name change to '{pending_new_name}'", "SUCCESS")
                 
                 # Log only important events
                 if is_new_device:
-                    server.log(f"NEW DEVICE: {data.get('name', mac)} ({data.get('ip', '')}) connected", "SUCCESS")
+                    server.log(f"NEW DEVICE: {device_reported_name} ({data.get('ip', '')}) connected", "SUCCESS")
                 elif old_device_status != new_device_status:
-                    server.log(f"STATUS CHANGE: {data.get('name', mac)} - Device: {old_device_status} → {new_device_status}", "INFO")
+                    server.log(f"STATUS CHANGE: {device_reported_name} - Device: {old_device_status} → {new_device_status}", "INFO")
                 elif old_game_status != new_game_status:
-                    server.log(f"GAME STATUS: {data.get('name', mac)} - {new_game_status}", "INFO")
+                    server.log(f"GAME STATUS: {device_reported_name} - {new_game_status}", "INFO")
                 
                 # Notify GUI to update
                 if server.gui_callback:
@@ -935,6 +973,29 @@ class DeviceStatusServer:
                 
                 if server.set_command(mac, command):
                     return jsonify({'status': 'ok', 'message': f'Command {command} queued for {mac}'})
+                else:
+                    return jsonify({'error': 'Device not found'}), 404
+                    
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @app.route('/rename', methods=['POST'])
+        def rename_device():
+            """Set a new name for a device (for external API use)"""
+            try:
+                data = request.get_json()
+                mac = data.get('mac')
+                new_name = data.get('new_name')
+                
+                if not mac or not new_name:
+                    return jsonify({'error': 'Missing mac or new_name'}), 400
+                
+                # Validate name length (max 32 chars as per client)
+                if len(new_name) > 32:
+                    return jsonify({'error': 'Name too long (max 32 characters)'}), 400
+                
+                if server.set_new_name(mac, new_name):
+                    return jsonify({'status': 'ok', 'message': f'Name change to "{new_name}" queued for {mac}'})
                 else:
                     return jsonify({'error': 'Device not found'}), 404
                     
@@ -991,6 +1052,72 @@ class DeviceStatusServer:
                 pass
         
         self.log("Device status server stopped", "SUCCESS")
+
+
+# ============== Rename Dialog ==============
+class RenameDeviceDialog(tk.Toplevel):
+    """Dialog for renaming a device"""
+    def __init__(self, parent, current_name, mac):
+        super().__init__(parent)
+        self.result = None
+        self.current_name = current_name
+        self.mac = mac
+        
+        self.title("Rename Device")
+        self.geometry("350x120")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+        
+        # Center the dialog
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+        
+        self.create_widgets()
+        
+        # Focus on entry
+        self.name_entry.focus_set()
+        self.name_entry.select_range(0, tk.END)
+        
+        # Bind Enter key
+        self.bind('<Return>', lambda e: self.on_save())
+        self.bind('<Escape>', lambda e: self.on_cancel())
+    
+    def create_widgets(self):
+        main_frame = ttk.Frame(self, padding="15")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Label
+        ttk.Label(main_frame, text=f"Enter new name for device ({self.mac}):").pack(anchor=tk.W)
+        
+        # Entry
+        self.name_var = tk.StringVar(value=self.current_name)
+        self.name_entry = ttk.Entry(main_frame, textvariable=self.name_var, width=40)
+        self.name_entry.pack(fill=tk.X, pady=(5, 15))
+        
+        # Buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        ttk.Button(button_frame, text="Save", command=self.on_save, width=10).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="Cancel", command=self.on_cancel, width=10).pack(side=tk.RIGHT)
+    
+    def on_save(self):
+        new_name = self.name_var.get().strip()
+        if not new_name:
+            messagebox.showerror("Error", "Name cannot be empty", parent=self)
+            return
+        if len(new_name) > 32:
+            messagebox.showerror("Error", "Name too long (max 32 characters)", parent=self)
+            return
+        self.result = new_name
+        self.destroy()
+    
+    def on_cancel(self):
+        self.result = None
+        self.destroy()
 
 
 # ============== Main GUI ==============
@@ -1295,6 +1422,14 @@ class ServerManagerGUI:
         self.device_sleep_all_btn = ttk.Button(control_frame, text="Sleep All", command=self.send_sleep_all_command)
         self.device_sleep_all_btn.pack(side=tk.LEFT, padx=(0, 5))
         
+        # Current Device section (with separator)
+        ttk.Separator(control_frame, orient='vertical').pack(side=tk.LEFT, fill='y', padx=10)
+        
+        ttk.Label(control_frame, text="Current Device:", font=('TkDefaultFont', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.device_rename_btn = ttk.Button(control_frame, text="Rename", command=self.rename_selected_device, state='disabled')
+        self.device_rename_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
         # Device Table
         table_frame = ttk.LabelFrame(tab, text="Connected Devices", padding="10")
         table_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
@@ -1344,9 +1479,13 @@ class ServerManagerGUI:
         tree_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         tree_scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
         
-        # Configure tag for offline devices
+        # Configure tag for offline devices and pending rename
         self.device_tree.tag_configure('offline', foreground='gray')
         self.device_tree.tag_configure('online', foreground='black')
+        self.device_tree.tag_configure('pending_rename', foreground='#CC7000')  # Orange for pending rename
+        
+        # Bind selection event
+        self.device_tree.bind('<<TreeviewSelect>>', self.on_device_select)
         
         # Log Display
         log_frame = ttk.LabelFrame(tab, text="Server Log", padding="10")
@@ -1730,12 +1869,66 @@ class ServerManagerGUI:
         self.device_status_log_text.delete(1.0, tk.END)
         self.device_status_log_text.config(state='disabled')
     
+    def on_device_select(self, event):
+        """Handle device selection in the tree view"""
+        selection = self.device_tree.selection()
+        if selection:
+            # Enable rename button when a device is selected
+            self.device_rename_btn.config(state='normal')
+        else:
+            self.device_rename_btn.config(state='disabled')
+    
+    def rename_selected_device(self):
+        """Open rename dialog for the selected device"""
+        selection = self.device_tree.selection()
+        if not selection:
+            messagebox.showinfo("No Selection", "Please select a device to rename.")
+            return
+        
+        mac = selection[0]  # The item ID is the MAC address
+        
+        # Get current device info
+        devices = self.device_status_server.get_devices()
+        device = None
+        for d in devices:
+            if d.get('mac') == mac:
+                device = d
+                break
+        
+        if not device:
+            messagebox.showerror("Error", "Device not found.")
+            return
+        
+        if not device.get('online', False):
+            messagebox.showwarning("Device Offline", "Cannot rename offline device. Please wait for it to come online.")
+            return
+        
+        current_name = device.get('name', '')
+        
+        # Open rename dialog
+        dialog = RenameDeviceDialog(self.root, current_name, mac)
+        self.root.wait_window(dialog)
+        
+        if dialog.result:
+            new_name = dialog.result
+            if self.device_status_server.set_new_name(mac, new_name):
+                self.add_device_status_log(
+                    f"[{datetime.now().strftime('%H:%M:%S')}] [INFO] Rename queued: {current_name} → {new_name}", 
+                    "INFO"
+                )
+                self.refresh_device_table()
+            else:
+                messagebox.showerror("Error", "Failed to queue rename command.")
+    
     def schedule_device_table_update(self):
         """Schedule table update on main thread"""
         self.root.after(0, self.refresh_device_table)
     
     def refresh_device_table(self):
         """Refresh the device table with current device data"""
+        # Remember current selection
+        selection = self.device_tree.selection()
+        
         # Clear existing items
         for item in self.device_tree.get_children():
             self.device_tree.delete(item)
@@ -1763,10 +1956,18 @@ class ServerManagerGUI:
             # Online status
             online = device.get('online', False)
             online_str = "✓" if online else "✗"
-            tag = 'online' if online else 'offline'
+            
+            # Check for pending rename - show "Waiting..." if there's a pending name
+            pending_name = device.get('pending_name')
+            if pending_name and pending_name != device.get('name', ''):
+                display_name = "Waiting..."
+                tag = 'pending_rename'
+            else:
+                display_name = device.get('name', '')
+                tag = 'online' if online else 'offline'
             
             values = (
-                device.get('name', ''),
+                display_name,
                 device.get('mac', ''),
                 device.get('ip', ''),
                 device.get('ssid', ''),
@@ -1782,6 +1983,17 @@ class ServerManagerGUI:
             )
             
             self.device_tree.insert('', tk.END, values=values, tags=(tag,), iid=device.get('mac'))
+        
+        # Restore selection if still valid
+        for mac in selection:
+            if self.device_tree.exists(mac):
+                self.device_tree.selection_add(mac)
+        
+        # Update rename button state
+        if self.device_tree.selection():
+            self.device_rename_btn.config(state='normal')
+        else:
+            self.device_rename_btn.config(state='disabled')
     
     def send_reboot_all_command(self):
         """Send reboot command to all online devices"""

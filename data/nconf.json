@@ -1,7 +1,7 @@
 {
   "device_name": "BAZA_GAME_001",
   "deviceID":1,
-  "deviceRole":"fixBase",    
+  "deviceRole":"gamePlayer",    
   "wifi_networks": [
         {
             "ssid": "tcutestnet",
@@ -23,7 +23,8 @@
     "sys_server":  "http://0.0.1.120:5007"
   },  
   "tmpStrings":{
-    "deviceRole":"fixBase",  
+    "deviceRole":  "gamePlayer",  
+    "deviceRole_0":"fixBase", 
     "deviceRole_1":"gamePlayer",
     "deviceRole_2":"fixZombie",
     "deviceRole_3":"fixHuman",
