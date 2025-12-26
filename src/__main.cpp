@@ -171,7 +171,7 @@ void setup()
 
 void loop()
 {
-    serialCommLoop();
+    //serialCommLoop();
     delay(50);
     //Serial.println(millis());
 }

@@ -29,14 +29,14 @@ bool tLedPlayer::loadFromJsonFile(void)
         
     loaded = true; 
 
-    if(!SPIFFS.begin(true, "/spiffs", 2))
-        if(!SPIFFS.begin(true, "/spiffs", 2))
+    if(!LittleFS.begin(true, "/spiffs", 2))
+        if(!LittleFS.begin(true, "/spiffs", 2))
         {
             Serial.println("!!! tLedPlayer::loadFromJsonFile: ERROR while mounting SPIFFS!");    
             return false;
         }      
 
-    File f = SPIFFS.open(LED_FILE_NAME, "r");
+    File f = LittleFS.open(LED_FILE_NAME, "r");
     if (!f)
     {
         Serial.printf("tLedPlayer::loadFromJsonFile: ERROR loading from <%s>\r\n", LED_FILE_NAME);

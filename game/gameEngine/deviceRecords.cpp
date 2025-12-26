@@ -70,27 +70,24 @@ bool tDeviceDataRecord::setJsonFromFile(String filename, bool self)
     //     return false;
     // }
 
-    // Open file for reading
+    // Open file for reading    
     File file = PSRamFS.open(filename, "r");
     if (!file)
     {
         Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. Failed to open file: ");
         Serial.println(filename);
         return false;
-    }
-
+    }    
     // Read file content
     String jsonStr = file.readString();
-    file.close();
-
+    file.close();    
     // Check if file was empty
     if (jsonStr.length() == 0)
     {
         Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. File is empty: ");
         Serial.println(filename);
         return false;
-    }
-
+    }    
     // Parse JSON
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonStr);
@@ -99,8 +96,7 @@ bool tDeviceDataRecord::setJsonFromFile(String filename, bool self)
         Serial.print("!!! tDeviceDataRecord::setJsonFromFile ERROR. deserializeJson() failed: ");
         Serial.println(error.c_str());
         return false;
-    }
-
+    }    
     // Set device data from JSON
     // if (self) {
     //     deviceID = utilsGetDeviceID64();
@@ -235,7 +231,7 @@ bool setSelfJson(String jsonS, bool print)
 
 bool setSelfJsonFromFile(String fName)
 {
-    Serial.println(">>> setSelfJsonFromFile: START");
+    Serial.printf(">>> setSelfJsonFromFile [%s]: START\r\n", fName.c_str());
     bool res = self.setJsonFromFile(fName, true);
     if (res)
     {

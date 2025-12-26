@@ -1,5 +1,5 @@
 #include <FS.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include "TFT_eSPI.h"
 #include "rm67162.h"
 #include "PSRamFS.h"
@@ -223,7 +223,7 @@ void tftDrawBmpToSprite(const char *filename, int16_t x, int16_t y, uint16_t wLi
 //     fs::File bmpFS;
 
 //     // Open requested file on SD card
-//     bmpFS = SPIFFS.open(filename, "r");
+//     bmpFS = LittleFS.open(filename, "r");
 
 //     if (!bmpFS)
 //     {

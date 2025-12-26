@@ -53,9 +53,9 @@ bool testRssiMonitor(void);
 
 void gameOnCritical(String errS, bool noVal);
 void gameWait(void);
-void startCommunicator(void);
+String startGameCommunicator(void);
 void stopCommunicator(void);
-bool doGameStep(void);
+bool doGameStep(String &role__, int &healthPoints__, int secondsLeft__);
 bool startFixedGame(String captS, String jsonS);
 bool startGameFromFile(String captS, String fileName, uint16_t gameToMs);
 

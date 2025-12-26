@@ -1,5 +1,5 @@
 #include <FS.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <esp_wifi.h>
 
 #include "webPortalBase.h"
@@ -141,16 +141,16 @@ void tWebPortalBase::wifiAPSetup()
     // esp_wifi_set_channel(ESP_CHANNEL, WIFI_SECOND_CHAN_NONE);
 
 
-    if (!SPIFFS.begin(false))
-        if (!SPIFFS.begin(true))
+    if (!LittleFS.begin(false))
+        if (!LittleFS.begin(true))
         {
             Serial.println("[wifiAPSetup] An Error has occurred while mounting SPIFFS");
             // return;
         }
-    _SPIFFSUsed = SPIFFS.usedBytes();
+    _SPIFFSUsed = LittleFS.usedBytes();
     Serial.print("SPIFFS Used bytes=");
     Serial.println(_SPIFFSUsed);
-    _SPIFFSTotal = SPIFFS.totalBytes();
+    _SPIFFSTotal = LittleFS.totalBytes();
     Serial.print("SPIFFS Total bytes=");
     Serial.println(_SPIFFSTotal);
 

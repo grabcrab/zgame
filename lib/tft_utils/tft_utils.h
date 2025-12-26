@@ -67,6 +67,9 @@ void humanPreWaitPicture(void);
 void basePreWaitPicture(void);
 void gameOverPicture(void);
 void gameCriticalErrorPicture(String msgS);
+void humanWinPicture(void);
+void zombieWinPicture(void);
+void drawPicture(void);
 
 void tftGameScreenBase(int32_t topVal, int32_t botVal, uint32_t secLeft);
 void tftGameScreenHuman(int32_t topVal, int32_t botVal, uint32_t secLeft);

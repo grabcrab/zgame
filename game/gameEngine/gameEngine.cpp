@@ -98,17 +98,21 @@ static void preGame(tGameRole role, uint16_t preTimeoutMs)
     switch(role)
     {
         case grZombie:
-            //zombiePreGame(preTimeoutMs);
+            Serial.println(">>> preGame: ZOMBIE");
+            zombiePreGame(preTimeoutMs);            
             res = startZombieGame(preTimeoutMs);
         return;        
         case grHuman:
-            //humanPreGame(preTimeoutMs);
+            Serial.println(">>> preGame: HUMAN");
+            humanPreGame(preTimeoutMs);
             res = startHumanGame(preTimeoutMs);
         return;        
         case grBase:
+            Serial.println(">>> preGame: BASE");
             basePreGame();
         return;
         case grRssiMonitor:
+            Serial.println(">>> preGame: RSSI MONITOR");
             rssiMonitorPreGame();
         return;
         default:
@@ -125,6 +129,7 @@ void gameWait(void)
 {
     const uint32_t gameWaitToMs = (60 * 60 * 1000);
     uint16_t preTimeoutMs;
+    Serial.println(">>> gameWait");
     valPlayPattern(GAME_WAIT_PATTERN);
     gameWaitLogo();
     tGameRole role = waitGame(preTimeoutMs, gameWaitToMs);
@@ -260,7 +265,7 @@ static int32_t getGameDurationLeftS(void)
     return res;
 }
 
-bool doGameStep(void)
+bool doGameStep(String &role__, int &healthPoints__, int secondsLeft__)
 {
     int zCount, hCount, bCount, healPoints, hitPoints, healthPoints;
     bool isBase;
@@ -282,6 +287,9 @@ bool doGameStep(void)
         hitPoints = 0;
     }
 
+    role__ =  role2str(deviceRole);
+    healthPoints__ = healthPoints;
+
     if (healthPoints < 0)
     {
         Serial.println("***** UNDER ZERO HEALTH *****");
@@ -301,11 +309,12 @@ bool doGameStep(void)
         }
         
         lastBaseStartedMs = 0;
-        inTheBase = 0;         
+        inTheBase = 0;                
         return true;
     }
 
-    secLeft =  getGameDurationLeftS();
+    //secLeft =  getGameDurationLeftS();
+    secLeft = secondsLeft__;
 
     if (deviceRole == grBase)
     {
@@ -314,8 +323,9 @@ bool doGameStep(void)
 
     if (secLeft <= 0) 
     {
-        processGameOver();        
-        return false;
+        secLeft = 0;
+        //processGameOver();        
+        //return false;
     }
 
     isInTheBase(healPoints);
@@ -334,7 +344,7 @@ bool startFixedGame(String captS, String jsonS)
     {
         preGame(getSelfDataRecord()->deviceRole, fixedGameToMs);
         espInitRxTx(getSelfTxPacket(), true);
-        startCommunicator();
+        startGameCommunicator();
         return true;
     }
     return false;
@@ -342,14 +352,13 @@ bool startFixedGame(String captS, String jsonS)
 
 bool startGameFromFile(String captS, String fileName, uint16_t gameToMs)
 {        
-    Serial.print(">>> ");
-    Serial.println(captS);
+    Serial.printf("\r\n>>> startGameFromFile [%s] [%s] [%lu ms]\r\n", captS.c_str(), fileName.c_str(), gameToMs);    
     stopCommunicator();
     if (setSelfJsonFromFile(fileName))
     {        
-        preGame(getSelfDataRecord()->deviceRole, gameToMs);
+        //preGame(getSelfDataRecord()->deviceRole, gameToMs);        
         espInitRxTx(getSelfTxPacket(), true);
-        startCommunicator();
+        startGameCommunicator();
         return true;
     }
     

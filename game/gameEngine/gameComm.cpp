@@ -2,11 +2,24 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
 
 #include "xgConfig.h"
 #include "utils.h"
 #include "board.h"
 #include "statusClient.h"
+
+static SemaphoreHandle_t gameApiMutex = NULL;
+static TaskHandle_t gameApiTaskHandle = NULL;
+
+static tGameApiResponse cachedResponse;
+static bool hasNewResult = false;
+
+static String currentRole = "";
+static String currentStatus = "";
+static int currentHealth = 0;
 
 tGameApiRequest::tGameApiRequest()
 {
@@ -32,7 +45,7 @@ tGameApiResponse sendDeviceData(tGameApiRequest request, String serverURL)
     
     // Create JSON data string
     JsonDocument jsonDoc;
-    jsonDoc["id"] = request.id;
+    jsonDoc["id"] = statusClientGetName();//request.id;
     jsonDoc["ip"] = deviceIP;
     jsonDoc["rssi"] = rssi;
     jsonDoc["role"] = request.role;
@@ -155,43 +168,116 @@ tGameRole waitGame(uint16_t &preTimeoutMs, uint32_t toMs)
     return res;
 }
 
-// // Example usage function
-// void setup() {
-//   Serial.begin(115200);
-
-//   // Connect to WiFi (replace with your credentials)
-//   WiFi.begin("YOUR_SSID", "YOUR_PASSWORD");
-//   while (WiFi.status() != WL_CONNECTED) {
-//     delay(1000);
-//     Serial.println("Connecting to WiFi...");
-//   }
-//   Serial.println("WiFi connected!");
-//   Serial.println("IP address: " + WiFi.localIP().toString());
+// tGameApiResponse updateGameStep(String role_, String status_, int health_)
+// {
+//     String serverURL = ConfigAPI::getGameServerUrl();
+//     tGameApiRequest req;
+//     req.role = role_;
+//     req.status = status_;
+//     req.health = health_;
+//     return sendDeviceData(req, serverURL);    
 // }
 
-// void loop() {
-//   // Create device request structure
-//   tGameApiRequest deviceData;
-//   deviceData.id = "device123";
-//   deviceData.role = "neutral";
-//   deviceData.status = "sleep";
-//   deviceData.health = 100;
-//   deviceData.battery = 85;
-//   deviceData.comment = "Device operational";
+// Background task
+static void gameApiTask(void* pvParameters)
+{
+    while (true)
+    {
+        String serverURL = ConfigAPI::getGameServerUrl();
+        tGameApiRequest req;
+        
+        // Get current params
+        if (xSemaphoreTake(gameApiMutex, portMAX_DELAY))
+        {
+            req.role = currentRole;
+            req.status = currentStatus;
+            req.health = currentHealth;
+            xSemaphoreGive(gameApiMutex);
+        }
+        
+        // Send request (blocking, but in separate task)
+        tGameApiResponse resp = sendDeviceData(req, serverURL);
+        
+        // Store result
+        if (xSemaphoreTake(gameApiMutex, portMAX_DELAY))
+        {
+            cachedResponse = resp;
+            if (resp.success)
+            {
+                hasNewResult = true;
+            }
+            xSemaphoreGive(gameApiMutex);
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 
-//   // Send request
-//   String serverURL = "http://192.168.1.120:5000/api/device";
-//   tGameApiResponse result = sendDeviceData(deviceData, serverURL);
+// Call once at startup
+void gameApiAsyncInit(void)
+{
+    Serial.println(">>> gameApiAsyncInit");
+    if (gameApiMutex == NULL)
+    {
+        gameApiMutex = xSemaphoreCreateMutex();
+    }
+    
+    if (gameApiTaskHandle == NULL)
+    {
+        xTaskCreate(
+            gameApiTask,
+            "GameAPI",
+            4096,  // stack size, adjust if needed
+            NULL,
+            1,     // priority
+            &gameApiTaskHandle
+        );
+    }
+}
 
-//   if (result.success) {
-//     Serial.println("API call successful!");
-//     // Use the response data as needed
-//     if (result.status == "game") {
-//       Serial.println("Device is now in game mode");
-//     }
-//   } else {
-//     Serial.println("API call failed");
-//   }
+// Non-blocking call - updates params and returns latest result
+tGameApiResponse updateGameStep(String role_, String status_, int health_)
+{
+    tGameApiResponse result;
+    result.success = false;
+    
+    if (gameApiMutex == NULL)
+    {
+        Serial.println("!!! updateGameStep: semaphore not created !!!");
+        return result;
+    }
+    
+    if (xSemaphoreTake(gameApiMutex, pdMS_TO_TICKS(10)))
+    {
+        // Update request params for next cycle
+        currentRole = role_;
+        currentStatus = status_;
+        currentHealth = health_;
+        
+        // Return cached response
+        result = cachedResponse;
+        
+        // success = true only if new data since last call
+        result.success = hasNewResult;
+        hasNewResult = false;
+        
+        xSemaphoreGive(gameApiMutex);
+    }
+    else 
+    {
+        Serial.println("!!! updateGameStep: semaphore error !!!");
+    }
+    
+    return result;
+}
 
-//   delay(30000); // Wait 30 seconds before next call
-// }
+// Optional: stop the task
+void gameApiAsyncStop(void)
+{
+    Serial.println(">>> gameApiAsyncStop");
+    if (gameApiTaskHandle != NULL)
+    {
+        vTaskDelete(gameApiTaskHandle);
+        gameApiTaskHandle = NULL;
+    }
+}

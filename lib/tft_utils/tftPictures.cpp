@@ -35,3 +35,18 @@ void gameCriticalErrorPicture(String msgS)
 {
     tftDrawBmp("/xerror.bmp", 0, 0, 536, 240);        
 }
+
+void humanWinPicture(void)
+{
+    tftDrawBmp("/hwin.bmp", 0, 0, 536, 240);        
+}
+
+void zombieWinPicture(void)
+{
+    tftDrawBmp("/zwin.bmp", 0, 0, 536, 240);        
+}
+
+void drawPicture(void)
+{
+    tftDrawBmp("/draw.bmp", 0, 0, 536, 240);        
+}

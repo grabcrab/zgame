@@ -20,7 +20,7 @@ bool ConfigManager::initialize()
         return true;
     }
 
-    if (!SPIFFS.begin(false))
+    if (!LittleFS.begin(false))
     {
         Serial.println("!!! ConfigManager: Failed to initialize SPIFFS");
         return false;
@@ -36,7 +36,7 @@ bool ConfigManager::initialize()
     Serial.println(">>> ConfigManager: Initialized successfully");
 
 #if (NET_CONFIG_DEINIT_SPIFFS)
-    SPIFFS.end();
+    LittleFS.end();
 #endif
     return true;
 }
@@ -105,13 +105,13 @@ void ConfigManager::deallocateMemory(void *ptr)
 
 bool ConfigManager::loadFromFile()
 {
-    if (!SPIFFS.exists(NET_CONFIG_FILE_PATH))
+    if (!LittleFS.exists(NET_CONFIG_FILE_PATH))
     {
         Serial.println("!!! ConfigManager: Config file not found");
         return false;
     }
 
-    File file = SPIFFS.open(NET_CONFIG_FILE_PATH, "r");
+    File file = LittleFS.open(NET_CONFIG_FILE_PATH, "r");
     if (!file)
     {
         Serial.println("!!! ConfigManager: Failed to open config file");
@@ -332,7 +332,7 @@ bool ConfigManager::saveConfig() const
     servers["ota_server"] = otaServerUrl;
 #endif
 
-    File file = SPIFFS.open(NET_CONFIG_FILE_PATH, "w");
+    File file = LittleFS.open(NET_CONFIG_FILE_PATH, "w");
     if (!file)
     {
         Serial.println("ConfigManager: Failed to open config file for writing");

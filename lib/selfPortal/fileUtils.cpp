@@ -1,11 +1,11 @@
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
 
 void listFiles(AsyncWebServerRequest *request) 
 {
     Serial.println(">>> listFiles");
     String json = "[";
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
     File file = root.openNextFile();
     bool first = true;
     
@@ -31,8 +31,8 @@ void getFile(AsyncWebServerRequest *request)
     String filename = request->getParam("file")->value();
     if(!filename.startsWith("/")) filename = "/" + filename;
     
-    if(SPIFFS.exists(filename)) {
-        File file = SPIFFS.open(filename, "r");
+    if(LittleFS.exists(filename)) {
+        File file = LittleFS.open(filename, "r");
         String content = file.readString();
         file.close();
         request->send(200, "application/json", content);
@@ -57,7 +57,7 @@ void saveFile(AsyncWebServerRequest *request)
     
     if(!filename.startsWith("/")) filename = "/" + filename;
     
-    File file = SPIFFS.open(filename, "w");
+    File file = LittleFS.open(filename, "w");
     if(file) 
     {
         file.print(data);
@@ -77,8 +77,8 @@ void handleFileManager(AsyncWebServerRequest *request)
     html += "<p><a href='/'>Back to main</a></p>";
 
     // Получение информации о SPIFFS
-    size_t totalBytes = SPIFFS.totalBytes();
-    size_t usedBytes = SPIFFS.usedBytes();
+    size_t totalBytes = LittleFS.totalBytes();
+    size_t usedBytes = LittleFS.usedBytes();
     size_t freeBytes = totalBytes - usedBytes;
     size_t totalFileSize = 0;
 
@@ -87,7 +87,7 @@ void handleFileManager(AsyncWebServerRequest *request)
 
     html += "<h2>File list:</h2><ul>";
 
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
     File file = root.openNextFile();
     while (file) 
     {
@@ -121,9 +121,9 @@ void handleDelete(AsyncWebServerRequest *request)
     {
         String fileName = request->getParam("file")->value();
         String path = "/" + fileName;
-        if (SPIFFS.exists(path)) 
+        if (LittleFS.exists(path)) 
         {
-            if (SPIFFS.remove(path)) 
+            if (LittleFS.remove(path)) 
             {
                 request->redirect("/files"); 
             } 
@@ -150,7 +150,7 @@ void handleDownload(AsyncWebServerRequest *request)
     {
         String fileName = request->getParam("file")->value();
         String path = "/" + fileName;
-        if (SPIFFS.exists(path)) 
+        if (LittleFS.exists(path)) 
         {
             request->send(SPIFFS, path, String(), true);
         } 
@@ -185,7 +185,7 @@ void handleUploadProcess(AsyncWebServerRequest *request, String filename, size_t
     if (!index) 
     {  
         String path = "/" + filename;
-        uploadFile = SPIFFS.open(path, FILE_WRITE);
+        uploadFile = LittleFS.open(path, FILE_WRITE);
         if (!uploadFile) 
         {
             Serial.println("!!! handleUploadProcess. file write ERROR: " + path);

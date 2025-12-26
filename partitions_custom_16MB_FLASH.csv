@@ -1,11 +1,8 @@
-# ESP32 Partition Table - 16MB Flash with 4MB SPIFFS
-# SPIFFS sized to match PSRamFS (4MB) for file synchronization
-#
 # Name,       Type,   SubType,    Offset,     Size,       Flags
 nvs,          data,   nvs,        0x9000,     0x4000,     
 eeprom,       data,   0x99,       0xD000,     0x1000,     
 otadata,      data,   ota,        0xE000,     0x2000,     
 app0,         app,    ota_0,      0x10000,    0x300000,   
 app1,         app,    ota_1,      0x310000,   0x300000,   
-spiffs,       data,   spiffs,     0x610000,   0x400000,   
-phy_init,     data,   phy,        0xA10000,   0x1000,
+spiffs,       data,   spiffs,     0x610000,   0x800000,   
+phy_init,     data,   phy,        0xE10000,   0x1000,

@@ -2,8 +2,9 @@
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include <FS.h>
-#include <SPIFFS.h>
+//#include <FS.h>
+//#include <LittleFS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 
 #define LED_PIXELS_NUM 8

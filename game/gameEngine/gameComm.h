@@ -6,7 +6,7 @@ struct tGameApiRequest
 {
     String id = "NoID";
     String role = "neutral";
-    String status;
+    String status = "idle";
     int health = 0;
     int battery = 0;
     String comment = "";
@@ -79,3 +79,6 @@ struct tGameApiResponse
 };
 
 tGameRole waitGame(uint16_t &preTimeoutMs, uint32_t toMs = 0xffffffff);
+void gameApiAsyncInit(void);
+void gameApiAsyncStop(void);
+tGameApiResponse updateGameStep(String role_, String status_, int health_);

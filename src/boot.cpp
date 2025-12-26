@@ -22,9 +22,10 @@ static void boardInit(void)
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, 100000);
     if (DEF_USE_TFT)
     {
-       setupTFT("BOOT"); 
-       tftPrintText("BAZA BOOT");
-       delay(300);              
+       setupTFT("BAZA BOOT"); 
+       //tftPrintText("BAZA BOOT");
+       tftPrintText(statusClientGetName());
+       delay(2000);              
     }
     valPlayError(ERR_VAL_OK);
     //delay(1000);
